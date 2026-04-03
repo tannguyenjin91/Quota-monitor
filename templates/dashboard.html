@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Step 3 Dashboard{% endblock %}
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="h3 mb-1">Step 3: Dashboard Output</h1>
+    <div class="text-muted">
+        {% if dashboard.report_type == 'banner_table' %}
+        Banner table built from the selected row questions and banner columns.
+        {% else %}
+        Dynamic crosstab built from the selected horizontal and vertical variables.
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-meta mb-4">
+    <div><strong>Source file:</strong> {{ dashboard.source_file_name }}</div>
+    <div><strong>Processed:</strong> {{ dashboard.processed_at.strftime('%Y-%m-%d %H:%M:%S') if dashboard.processed_at else '' }}</div>
+    {% if dashboard.report_type == 'banner_table' %}
+    <div><strong>Row questions:</strong> {{ dashboard.selected_row_variables|join(', ') }}</div>
+    <div><strong>Banner columns:</strong> {{ dashboard.selected_banner_variables|join(', ') }}</div>
+    <div><strong>Banner layout:</strong> {{ dashboard.selected_banner_layout_mode }}</div>
+    {% if dashboard.selected_banner_tree %}
+    <div><strong>Header tree:</strong> {% for item in dashboard.selected_banner_tree %}L{{ loop.index }}: {{ item.variable_code }}{% if not loop.last %} &rarr; {% endif %}{% endfor %}</div>
+    {% endif %}
+    {% else %}
+    <div><strong>Horizontal variable:</strong> {{ dashboard.horizontal_label }}</div>
+    <div><strong>Vertical variable:</strong> {{ dashboard.vertical_label }}</div>
+    {% endif %}
+    <div><strong>Display mode:</strong> {{ dashboard.display_mode }}</div>
+    <div><strong>Percent mode:</strong> {{ dashboard.percent_mode }}</div>
+    <div><strong>Accepted quota base:</strong> {{ dashboard.accepted_base_size }}</div>
+    <div><strong>Additional filters:</strong> {% if dashboard.selected_filters %}{% for item in dashboard.selected_filters %}{{ item.variable_code }} = {{ item.value }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}None{% endif %}</div>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+    <a class="btn btn-outline-secondary" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">Back to Step 2</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='quota_dashboard') }}">quota_dashboard.xlsx</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='cleaned_data') }}">cleaned_data.xlsx</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='question_dictionary') }}">question_dictionary.xlsx</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='mapping_audit') }}">mapping_audit.xlsx</a>
+</div>
+
+{% if dashboard.report_type == 'banner_table' %}
+  {% for banner_view in dashboard.banner_views %}
+  <div class="card shadow-sm border-0 {% if not loop.first %}mt-4{% endif %}">
+      <div class="card-header bg-white">
+          <h2 class="h5 mb-0">{{ banner_view.mode }} table</h2>
+      </div>
+      <div class="table-responsive sticky-table">
+          <table class="table table-bordered align-middle mb-0 quota-dashboard-table banner-table">
+              <thead>
+                  <tr>
+                      <th rowspan="2" class="sticky-left">Question</th>
+                      <th rowspan="2" class="sticky-left-2">Category</th>
+                      {% for group in dashboard.column_groups %}
+                      <th colspan="{{ group.columns|length }}">{{ group.question_label }}</th>
+                      {% endfor %}
+                  </tr>
+                  <tr>
+                      {% for group in dashboard.column_groups %}
+                          {% for column in group.columns %}
+                          <th>{{ column.label }}</th>
+                          {% endfor %}
+                      {% endfor %}
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for section in banner_view.sections %}
+                      {% for row in section.rows %}
+                      <tr class="{% if row.is_base %}base-row{% endif %}">
+                          {% if loop.first %}
+                          <th rowspan="{{ section.rows|length }}" class="section-label sticky-left">{{ section.row_variable }}<br><span class="text-muted fw-normal">{{ section.question_label }}</span></th>
+                          {% endif %}
+                          <th class="sticky-left-2">{{ row.category_label }}</th>
+                          {% for cell in row.cells %}
+                          <td>{{ cell.display }}</td>
+                          {% endfor %}
+                      </tr>
+                      {% endfor %}
+                  {% endfor %}
+              </tbody>
+          </table>
+      </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white"><h2 class="h5 mb-0">Drill-down</h2></div>
+      <div class="card-body">
+          <div class="small text-muted mb-3">Click a non-total cell in the main table to break it down further.</div>
+          <form method="get" class="row g-3">
+              <div class="col-md-4">
+                  <label class="form-label">Break down by</label>
+                  <select class="form-select" name="drill_variable" onchange="this.form.submit()">
+                      {% for item in drill_variable_choices %}
+                      <option value="{{ item.variable_code }}" {% if dashboard.drill_variable == item.variable_code %}selected{% endif %}>
+                          {{ item.variable_code }} - {{ item.question_label }}
+                      </option>
+                      {% endfor %}
+                  </select>
+              </div>
+              <input type="hidden" name="drill_row" value="{{ dashboard.drill_row_value }}">
+              <input type="hidden" name="drill_column" value="{{ dashboard.drill_column_value }}">
+              <div class="col-md-8 d-flex align-items-end">
+                  {% if dashboard.drilldown %}
+                  <div class="small text-muted">Current context: {{ dashboard.vertical_label }} = <strong>{{ dashboard.drill_row_value }}</strong>; {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drill_column_value }}</strong></div>
+                  {% else %}
+                  <div class="small text-muted">No drill context selected yet. Click a value cell below to open the breakdown.</div>
+                  {% endif %}
+              </div>
+          </form>
+      </div>
+  </div>
+
+  {% for table_view in dashboard.table_views %}
+  <div class="card shadow-sm border-0 {% if not loop.first %}mt-4{% endif %}">
+      <div class="card-header bg-white">
+          <h2 class="h5 mb-0">{{ table_view.mode }} table</h2>
+      </div>
+      <div class="table-responsive sticky-table">
+          <table class="table table-bordered align-middle mb-0 quota-dashboard-table">
+              <thead>
+                  <tr>
+                      <th>{{ dashboard.vertical_label }}</th>
+                      {% for category in dashboard.column_categories %}
+                      <th>{{ category }}</th>
+                      {% endfor %}
+                      <th class="total-cell">Total</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for row in table_view.rows %}
+                  <tr>
+                      <th>{{ row.label }}</th>
+                      {% for cell in row.cells %}
+                      {% set category = dashboard.column_categories[loop.index0] %}
+                      <td>
+                          <a class="drill-link" href="{{ url_for('web.dashboard', upload_id=upload.id, drill_row=row.label, drill_column=category, drill_variable=dashboard.drill_variable or dashboard.default_drill_variable) }}">
+                              {{ cell.display }}
+                          </a>
+                      </td>
+                      {% endfor %}
+                      <td class="total-cell">{{ row.total.display }}</td>
+                  </tr>
+                  {% endfor %}
+                  <tr class="total-row">
+                      <th>{{ table_view.total_row.label }}</th>
+                      {% for cell in table_view.total_row.cells %}
+                      <td class="total-cell">{{ cell.display }}</td>
+                      {% endfor %}
+                      <td class="total-cell grand-total">{{ table_view.total_row.total.display }}</td>
+                  </tr>
+              </tbody>
+          </table>
+      </div>
+  </div>
+  {% endfor %}
+
+  {% if dashboard.drilldown %}
+  <div class="card shadow-sm border-0 mt-4">
+      <div class="card-header bg-white">
+          <h2 class="h5 mb-0">Breakdown by {{ dashboard.drilldown.breakdown_label }}</h2>
+      </div>
+      <div class="card-body">
+          <div class="small text-muted mb-3">
+              {{ dashboard.vertical_label }} = <strong>{{ dashboard.drilldown.row_value }}</strong>,
+              {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drilldown.column_value }}</strong>,
+              break down by <strong>{{ dashboard.drilldown.breakdown_label }}</strong>.
+          </div>
+          <div class="table-responsive">
+              <table class="table table-bordered align-middle mb-0 quota-dashboard-table">
+                  <thead>
+                      <tr>
+                          <th>{{ dashboard.drilldown.breakdown_label }}</th>
+                          <th>{{ dashboard.drilldown.display_mode }}</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {% for row in dashboard.drilldown.rows %}
+                      <tr>
+                          <th>{{ row.label }}</th>
+                          <td>{{ row.cell.display }}</td>
+                      </tr>
+                      {% endfor %}
+                      <tr class="total-row">
+                          <th>Total</th>
+                          <td class="total-cell">{{ dashboard.drilldown.total.display }}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+      </div>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

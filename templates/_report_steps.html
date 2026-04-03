@@ -1,0 +1,29 @@
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body py-3">
+        <div class="report-steps">
+            <div class="report-step {% if current_step == 1 %}active{% elif current_step > 1 %}done{% endif %}">
+                <div class="report-step-index">1</div>
+                <div class="report-step-text">
+                    <div class="report-step-title">Upload</div>
+                    <div class="report-step-subtitle">Detect fields</div>
+                </div>
+            </div>
+            <div class="report-step-line"></div>
+            <div class="report-step {% if current_step == 2 %}active{% elif current_step > 2 %}done{% endif %}">
+                <div class="report-step-index">2</div>
+                <div class="report-step-text">
+                    <div class="report-step-title">Configure</div>
+                    <div class="report-step-subtitle">Map fields and layout</div>
+                </div>
+            </div>
+            <div class="report-step-line"></div>
+            <div class="report-step {% if current_step == 3 %}active{% endif %}">
+                <div class="report-step-index">3</div>
+                <div class="report-step-text">
+                    <div class="report-step-title">Render</div>
+                    <div class="report-step-subtitle">Review output</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

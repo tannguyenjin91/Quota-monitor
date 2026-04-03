@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Report Flow - Step 2{% endblock %}
+{% block content %}
+{% set current_step = 2 %}
+{% include "_report_steps.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Step 2: Configure Report Layout</h1>
+        <div class="text-muted">Choose how each detected field behaves in the report: quota, row, column, or ignore.</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('web.report_step1', upload_id=upload.id) }}">Back to Step 1</a>
+</div>
+
+{% set quota_fields = report_config.fields | selectattr('role', 'equalto', 'quota') | list %}
+{% set row_fields = report_config.fields | selectattr('role', 'equalto', 'row') | list %}
+{% set column_fields = report_config.fields | selectattr('role', 'equalto', 'column') | list %}
+{% set ignored_fields = report_config.fields | selectattr('role', 'equalto', 'ignore') | list %}
+
+{% macro render_field_table(title, subtitle, fields, theme_class) %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="h5 mb-0">{{ title }}</h2>
+            <div class="small text-muted">{{ subtitle }}</div>
+        </div>
+        <span class="badge text-bg-light">{{ fields|length }} fields</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Field key</th>
+                    <th>Display label</th>
+                    <th>Quick assign</th>
+                    <th>Role</th>
+                    <th>Show</th>
+                    <th>Order</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field in fields %}
+                <tr class="{{ theme_class }}">
+                    <td>{{ field.key }}</td>
+                    <td><input class="form-control" type="text" name="label__{{ field.key }}" value="{{ field.label }}"></td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button class="btn btn-sm btn-outline-primary role-quick-btn" type="button" data-target="role__{{ field.key }}" data-value="quota">Move to Quota</button>
+                            <button class="btn btn-sm btn-outline-success role-quick-btn" type="button" data-target="role__{{ field.key }}" data-value="row">Move to Row</button>
+                            <button class="btn btn-sm btn-outline-warning role-quick-btn" type="button" data-target="role__{{ field.key }}" data-value="column">Move to Column</button>
+                            <button class="btn btn-sm btn-outline-secondary role-quick-btn" type="button" data-target="role__{{ field.key }}" data-value="ignore">Move to Ignore</button>
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select role-select" name="role__{{ field.key }}" id="role__{{ field.key }}">
+                            <option value="quota" {% if field.role == 'quota' %}selected{% endif %}>quota</option>
+                            <option value="row" {% if field.role == 'row' %}selected{% endif %}>row</option>
+                            <option value="column" {% if field.role == 'column' %}selected{% endif %}>column</option>
+                            <option value="ignore" {% if field.role == 'ignore' %}selected{% endif %}>ignore</option>
+                        </select>
+                    </td>
+                    <td class="text-center">
+                        <input class="form-check-input" type="checkbox" name="visible__{{ field.key }}" {% if field.visible %}checked{% endif %}>
+                    </td>
+                    <td><input class="form-control" type="number" name="order__{{ field.key }}" value="{{ field.order }}"></td>
+                </tr>
+                {% endfor %}
+                {% if not fields %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No fields in this section.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endmacro %}
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0">Detected fields from Step 1</h2>
+        <span class="small text-muted">{{ detected_fields|length }} fields</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Field key</th>
+                    <th>Label</th>
+                    <th>Unique values</th>
+                    <th>Sample values</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field in detected_fields %}
+                <tr>
+                    <td>{{ field.key }}</td>
+                    <td>{{ field.label }}</td>
+                    <td>{{ field.unique_count }}</td>
+                    <td>{{ field.sample_values|join(', ') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form method="post">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Metric mode</label>
+                    <select class="form-select" name="metric_mode">
+                        {% set current_mode = 'both' if report_config.metric_modes|length == 2 else report_config.metric_modes[0] %}
+                        <option value="count" {% if current_mode == 'count' %}selected{% endif %}>Count</option>
+                        <option value="percent" {% if current_mode == 'percent' %}selected{% endif %}>Percent</option>
+                        <option value="both" {% if current_mode == 'both' %}selected{% endif %}>Both</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Orientation</label>
+                    <select class="form-select" name="orientation">
+                        <option value="horizontal" {% if report_config.orientation == 'horizontal' %}selected{% endif %}>Horizontal</option>
+                        <option value="vertical" {% if report_config.orientation == 'vertical' %}selected{% endif %}>Vertical</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check me-3">
+                        <input class="form-check-input" type="checkbox" name="show_question_text" id="show_question_text" {% if report_config.show_question_text %}checked{% endif %}>
+                        <label class="form-check-label" for="show_question_text">Show question text</label>
+                    </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="show_row_labels" id="show_row_labels" {% if report_config.show_row_labels %}checked{% endif %}>
+                        <label class="form-check-label" for="show_row_labels">Show row labels</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h2 class="h5">Current report structure</h2>
+                    <div class="small text-muted mb-3">This preview reflects your current field-role selections.</div>
+                    <div class="report-structure-block">
+                        <div class="report-structure-label">Quota fields</div>
+                        <div class="report-structure-values">
+                            {% if quota_fields %}{{ quota_fields | map(attribute='label') | join(', ') }}{% else %}None{% endif %}
+                        </div>
+                    </div>
+                    <div class="report-structure-block">
+                        <div class="report-structure-label">Row fields</div>
+                        <div class="report-structure-values">
+                            {% if row_fields %}{{ row_fields | map(attribute='label') | join(', ') }}{% else %}None{% endif %}
+                        </div>
+                    </div>
+                    <div class="report-structure-block">
+                        <div class="report-structure-label">Column fields</div>
+                        <div class="report-structure-values">
+                            {% if column_fields %}{{ column_fields | map(attribute='label') | join(', ') }}{% else %}None{% endif %}
+                        </div>
+                    </div>
+                    <div class="report-structure-block mb-0">
+                        <div class="report-structure-label">Ignored fields</div>
+                        <div class="report-structure-values">
+                            {% if ignored_fields %}{{ ignored_fields | map(attribute='label') | join(', ') }}{% else %}None{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h2 class="h5">How to assign fields</h2>
+                    <div class="small text-muted mb-3">Use one row field and one column field for the simplest cross-tab. Add quota fields for grouped banner columns.</div>
+                    <ul class="small mb-0">
+                        <li><strong>Row</strong>: creates the table rows.</li>
+                        <li><strong>Column</strong>: creates the table columns.</li>
+                        <li><strong>Quota</strong>: creates grouped quota/banner columns.</li>
+                        <li><strong>Ignore</strong>: keeps the field out of the final output.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12">
+            {{ render_field_table('Quota Fields', 'Fields used as grouped quota or banner headers.', quota_fields, 'table-primary-subtle') }}
+        </div>
+        <div class="col-12">
+            {{ render_field_table('Row Fields', 'Fields used to generate report rows.', row_fields, 'table-success-subtle') }}
+        </div>
+        <div class="col-12">
+            {{ render_field_table('Column Fields', 'Fields used to generate report columns.', column_fields, 'table-warning-subtle') }}
+        </div>
+        <div class="col-12">
+            {{ render_field_table('Ignored Fields', 'Fields excluded from final output unless reassigned.', ignored_fields, '') }}
+        </div>
+    </div>
+    <div class="mt-3 d-flex justify-content-between">
+        <a class="btn btn-outline-secondary" href="{{ url_for('web.report_step1', upload_id=upload.id) }}">Previous: Step 1</a>
+        <button class="btn btn-primary" type="submit">Save and continue to Step 3</button>
+    </div>
+</form>
+<script>
+document.querySelectorAll('.role-quick-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    const targetId = button.dataset.target;
+    const value = button.dataset.value;
+    const select = document.getElementById(targetId);
+    if (select) {
+      select.value = value;
+    }
+  });
+});
+</script>
+{% endblock %}

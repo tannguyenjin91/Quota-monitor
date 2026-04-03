@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="h3 mb-1">Upload History</h1>
+    <div class="text-muted">Review previous uploads and reopen quota configuration or dashboard output.</div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>File</th>
+                    <th>Uploaded</th>
+                    <th>Question sheet</th>
+                    <th>Data sheet</th>
+                    <th>Respondent rows</th>
+                    <th>Accepted</th>
+                    <th>Rejected</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for upload in uploads %}
+                <tr>
+                    <td>{{ upload.id }}</td>
+                    <td>{{ upload.original_file_name }}</td>
+                    <td>{{ upload.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if upload.uploaded_at else '' }}</td>
+                    <td>{{ upload.question_sheet_name or '' }}</td>
+                    <td>{{ upload.data_sheet_name or '' }}</td>
+                    <td>{{ upload.raw_row_count }}</td>
+                    <td>{{ upload.accepted_row_count }}</td>
+                    <td>{{ upload.rejected_row_count }}</td>
+                    <td class="d-flex gap-2 flex-wrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">Step 2</a>
+                        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('web.dashboard', upload_id=upload.id) }}">Step 3</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center py-4">No uploads yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

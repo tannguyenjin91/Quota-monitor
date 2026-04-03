@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Compare Versions{% endblock %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h1 class="h3 mb-3">Compare Versions</h1>
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label">Base upload</label>
+                        <select class="form-select" name="base_upload_id" required>
+                            <option value="">Select base upload</option>
+                            {% for upload in uploads %}
+                            <option value="{{ upload.id }}" {% if selected_base == upload.id %}selected{% endif %}>#{{ upload.id }} - {{ upload.original_file_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Comparison upload</label>
+                        <select class="form-select" name="current_upload_id" required>
+                            <option value="">Select comparison upload</option>
+                            {% for upload in uploads %}
+                            <option value="{{ upload.id }}" {% if selected_current == upload.id %}selected{% endif %}>#{{ upload.id }} - {{ upload.original_file_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button class="btn btn-primary" type="submit">Compare</button>
+                    </div>
+                </form>
+                {% if comparison %}
+                <div class="mt-3 d-flex gap-2">
+                    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('web.download_comparison_export', base_upload_id=comparison.base_upload.id, current_upload_id=comparison.current_upload.id) }}">Export comparison_summary.xlsx</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if comparison %}
+<div class="mt-4">
+    <div class="text-muted mb-3">Base upload #{{ comparison.base_upload.id }} compared with current upload #{{ comparison.current_upload.id }}</div>
+    {% for section_title, rows in [('Gender comparison', comparison.gender_rows), ('Region comparison', comparison.region_rows), ('Overall total', comparison.overall_rows)] %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white"><h2 class="h5 mb-0">{{ section_title }}</h2></div>
+        <div class="table-responsive">
+            <table class="table quota-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Target</th>
+                        <th>Previous Actual</th>
+                        <th>Current Actual</th>
+                        <th>Delta</th>
+                        <th>Current Remaining</th>
+                        <th>Current Completion %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="{{ 'parent-row' if row.is_parent else '' }}">
+                        <td>{{ row.category }}</td>
+                        <td>{{ row.target }}</td>
+                        <td>{{ row.previous_actual }}</td>
+                        <td>{{ row.current_actual }}</td>
+                        <td class="{% if row.delta_actual > 0 %}delta-positive{% elif row.delta_actual < 0 %}delta-negative{% else %}delta-neutral{% endif %}">{{ row.delta_display }}</td>
+                        <td>{{ row.current_remaining }}</td>
+                        <td>{{ "%.1f"|format(row.current_completion_pct) }}%</td>
+                        <td><span class="badge status-{{ row.status|lower|replace(' ', '-') }}">{{ row.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

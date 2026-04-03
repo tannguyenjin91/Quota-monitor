@@ -1,0 +1,153 @@
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.summary-strip,
+.dashboard-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+}
+
+.quota-dashboard-table th,
+.quota-dashboard-table td {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.quota-dashboard-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    z-index: 1;
+}
+
+.quota-dashboard-table tbody th {
+    position: sticky;
+    left: 0;
+    background: #ffffff;
+    z-index: 1;
+}
+
+.total-cell,
+.total-row th,
+.grand-total {
+    background: #eef2ff;
+    font-weight: 700;
+}
+
+.quota-dashboard-table tbody tr:hover td,
+.quota-dashboard-table tbody tr:hover th {
+    background: #f8fafc;
+}
+
+.cell-count {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.cell-percent {
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.upload-progress-panel {
+    margin-bottom: 1rem;
+    padding: 0.875rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #dbeafe;
+    border-radius: 0.75rem;
+}
+
+.upload-progress-panel .progress {
+    height: 1rem;
+}
+
+.drill-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.drill-link:hover {
+    text-decoration: underline;
+}
+
+.banner-table .section-label {
+    min-width: 220px;
+    background: #eff6ff;
+    vertical-align: top;
+}
+
+.banner-table .sticky-left {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+
+.banner-table .sticky-left-2 {
+    position: sticky;
+    left: 220px;
+    z-index: 2;
+    background: #ffffff;
+}
+
+.banner-table .base-row th,
+.banner-table .base-row td {
+    background: #f8fafc;
+    font-weight: 600;
+}
+
+.tag-list {
+    min-height: 44px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #0f172a;
+    font-size: 0.85rem;
+    border: 1px solid #93c5fd;
+}
+
+.tag-remove {
+    border: 0;
+    background: transparent;
+    color: #1e3a8a;
+    line-height: 1;
+    font-size: 1rem;
+    padding: 0;
+    cursor: pointer;
+}
+
+.tag-move {
+    border: 0;
+    background: transparent;
+    color: #0a58ca;
+    line-height: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0;
+    cursor: pointer;
+}

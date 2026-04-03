@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Report Flow - Step 1{% endblock %}
+{% block content %}
+{% set current_step = 1 %}
+{% include "_report_steps.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Step 1: Upload And Detect Fields</h1>
+        <div class="text-muted">Upload raw data, process it through the existing pipeline, then inspect detected reporting fields.</div>
+    </div>
+</div>
+
+{% if not upload %}
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Raw workbook</label>
+                        <input class="form-control" type="file" name="file" accept=".xlsx" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <textarea class="form-control" name="note" rows="3" placeholder="Optional report run note"></textarea>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Upload and detect fields</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <div class="fw-semibold">Upload #{{ upload.id }}</div>
+            <div class="text-muted">{{ upload.original_file_name }}</div>
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('web.report_step2', upload_id=upload.id) }}">Continue to Step 2</a>
+    </div>
+</div>
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white"><h2 class="h5 mb-0">Detected fields</h2></div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Field key</th>
+                    <th>Label</th>
+                    <th>Unique values</th>
+                    <th>Sample values</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field in detected_fields %}
+                <tr>
+                    <td>{{ field.key }}</td>
+                    <td>{{ field.label }}</td>
+                    <td>{{ field.unique_count }}</td>
+                    <td>{{ field.sample_values|join(', ') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="d-flex justify-content-end mt-3">
+    <a class="btn btn-primary" href="{{ url_for('web.report_step2', upload_id=upload.id) }}">Next: Step 2</a>
+</div>
+{% endif %}
+{% endblock %}

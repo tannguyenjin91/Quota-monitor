@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+{% block title %}Step 2 Configure{% endblock %}
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="h3 mb-1">Step 2: Configure Banner Table</h1>
+    <div class="text-muted">Choose row questions, banner column groups, display mode, and optional advanced filters.</div>
+</div>
+
+<div class="summary-strip mb-4">
+    <div><strong>File:</strong> {{ upload.original_file_name }}</div>
+    <div><strong>Accepted quota base estimate:</strong> {{ accepted_base }}</div>
+    <div><strong>Parsed variables:</strong> {{ upload.parsed_variable_count }}</div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white"><h2 class="h5 mb-0">AI / Smart Suggest</h2></div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <input type="hidden" name="action" value="ai_suggest">
+            <input type="hidden" name="display_mode" id="aiDisplayMode" value="{{ selected_display_mode }}">
+            <input type="hidden" name="percent_mode" id="aiPercentMode" value="{{ selected_percent_mode }}">
+            {% for value in selected_row_variables %}
+            <input type="hidden" name="banner_row_variables" value="{{ value }}">
+            {% endfor %}
+            {% for value in selected_banner_variables %}
+            <input type="hidden" name="banner_column_variables" value="{{ value }}">
+            {% endfor %}
+            <div class="col-12">
+                <label class="form-label">Describe the banner you want</label>
+                <textarea class="form-control" name="ai_prompt" rows="3" placeholder="Example: address rows with gender, age, distance and direction columns">{{ ai_prompt or '' }}</textarea>
+                <div class="form-text">Suggestion can prefill starter row questions and banner columns, then you can adjust with add/remove tags.</div>
+            </div>
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <button class="btn btn-outline-primary" type="submit">Suggest setup</button>
+                {% if ai_suggestion and ai_suggestion.explanation %}
+                <span class="small text-muted">{{ ai_suggestion.explanation }}</span>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<form method="post" id="bannerForm">
+    <div class="row g-4">
+        <div class="col-12 col-xl-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white"><h2 class="h5 mb-0">Banner Builder</h2></div>
+                <div class="card-body">
+                    <div class="small text-muted mb-3">Add items into each list. No Ctrl-multi-select is required.</div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Add row question</label>
+                            <input class="form-control option-search mb-2" type="text" id="rowSearch" placeholder="Search code, label, type, categories">
+                            <div class="d-flex gap-2 mb-2">
+                                <select class="form-select" id="rowPicker">
+                                    {% for variable in selector_variables %}
+                                    <option value="{{ variable.variable_code }}" data-search="{{ (variable.variable_code ~ ' ' ~ variable.question_label ~ ' ' ~ variable.question_type ~ ' ' ~ ((variable.available_labels or [])|join(' '))) | lower }}">
+                                        {{ variable.variable_code }} - {{ variable.question_label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="addRowBtn">Add</button>
+                            </div>
+                            <div class="tag-list" id="rowTags"></div>
+                            <div id="rowHiddenInputs"></div>
+                            <div class="form-text" id="rowSelectionPreview">These questions will appear as sections and rows on the left side of the banner.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Banner column mode</label>
+                            <select class="form-select mb-2" name="banner_layout_mode" id="bannerLayoutMode">
+                                <option value="flat" {% if selected_banner_layout_mode == 'flat' %}selected{% endif %}>Flat columns (không lồng)</option>
+                                <option value="tree" {% if selected_banner_layout_mode == 'tree' %}selected{% endif %}>Header tree (lồng)</option>
+                            </select>
+                            <label class="form-label" id="treeBuilderLabel">Add banner column</label>
+                            <input class="form-control option-search mb-2" type="text" id="treeSearch" placeholder="Search code, label, type, categories">
+                            <div class="d-flex gap-2 mb-2">
+                                <select class="form-select" id="treePicker">
+                                    {% for variable in selector_variables %}
+                                    <option value="{{ variable.variable_code }}" data-search="{{ (variable.variable_code ~ ' ' ~ variable.question_label ~ ' ' ~ variable.question_type ~ ' ' ~ ((variable.available_labels or [])|join(' '))) | lower }}">
+                                        {{ variable.variable_code }} - {{ variable.question_label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="addTreeBtn">Add</button>
+                            </div>
+                            <div class="tag-list" id="treeTags"></div>
+                            <div id="bannerHiddenInputs"></div>
+                            <input type="hidden" name="banner_tree_json" id="bannerTreeJson" value="[]">
+                            <div class="form-text" id="bannerSelectionPreview">Flat mode: add columns as normal groups. Tree mode: order levels left to right.</div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Display mode</label>
+                            <select class="form-select" name="display_mode" id="displayMode">
+                                <option value="Count" {% if selected_display_mode == 'Count' %}selected{% endif %}>Count only</option>
+                                <option value="Percent" {% if selected_display_mode == 'Percent' %}selected{% endif %}>Percent only</option>
+                                <option value="Count + Percent" {% if selected_display_mode == 'Count + Percent' %}selected{% endif %}>Count + Percent (2 tables)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Percent mode</label>
+                            <select class="form-select" name="percent_mode" id="percentMode">
+                                <option value="total_percent" {% if selected_percent_mode == 'total_percent' %}selected{% endif %}>Total %</option>
+                                <option value="row_percent" {% if selected_percent_mode == 'row_percent' %}selected{% endif %}>Row %</option>
+                                <option value="column_percent" {% if selected_percent_mode == 'column_percent' %}selected{% endif %}>Column %</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <details>
+                        <summary class="fw-semibold">Advanced filters</summary>
+                        <div class="small text-muted mt-2 mb-3">Use only when you need a sliced report (for example: one interviewer, one area, one subgroup).</div>
+                        {% for index in [1, 2, 3] %}
+                        {% set current_filter = existing_filters[index - 1] if existing_filters|length >= index else None %}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Filter variable {{ index }}</label>
+                                <select class="form-select quota-filter-variable" name="filter_variable_{{ index }}" id="filter_variable_{{ index }}">
+                                    <option value="">No filter</option>
+                                    {% for variable in selector_variables %}
+                                    <option value="{{ variable.variable_code }}" {% if current_filter and current_filter.variable_code == variable.variable_code %}selected{% endif %}>
+                                        {{ variable.variable_code }} - {{ variable.question_label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Filter value {{ index }}</label>
+                                <select class="form-select quota-filter-value" name="filter_value_{{ index }}" id="filter_value_{{ index }}"></select>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white"><h2 class="h5 mb-0">Step 2 Summary</h2></div>
+                <div class="card-body">
+                    <div class="summary-item"><strong>Row questions:</strong> <span id="rowSummary">{{ selected_row_variables|join(', ') if selected_row_variables else 'Not selected' }}</span></div>
+                    <div class="summary-item"><strong>Banner columns:</strong> <span id="bannerSummary">{{ selected_banner_variables|join(', ') if selected_banner_variables else 'Not selected' }}</span></div>
+                    <div class="summary-item"><strong>Display mode:</strong> <span id="displayModePreview">{{ selected_display_mode }}</span></div>
+                    <div class="summary-item" id="percentModeSummaryRow"><strong>Percent mode:</strong> <span id="percentModePreview">{{ selected_percent_mode }}</span></div>
+                    <div class="summary-item"><strong>Estimated valid accepted base:</strong> {{ accepted_base }}</div>
+                    <div class="summary-item"><strong>Advanced filters:</strong> <span id="additionalFiltersPreview">{% if existing_filters %}{% for item in existing_filters %}{{ item.variable_code }} = {{ item.value }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}None{% endif %}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a class="btn btn-outline-secondary" href="{{ url_for('web.upload') }}">Back to Step 1</a>
+        <button class="btn btn-primary" type="submit" id="continueButton">Continue to Step 3</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const selectorVariables = {{ selector_variables|tojson }};
+  const existingFilters = {{ existing_filters|tojson }};
+  const initialRows = {{ selected_row_variables|tojson }};
+  const initialBanners = {{ selected_banner_variables|tojson }};
+  const initialBannerTree = {{ selected_banner_tree|tojson }};
+  const valueOptionsByVariable = {};
+  const labelByCode = {};
+
+  selectorVariables.forEach((item) => {
+    valueOptionsByVariable[item.variable_code] = item.available_labels || [];
+    labelByCode[item.variable_code] = `${item.variable_code} - ${item.question_label}`;
+  });
+
+  const rowState = [];
+  const bannerState = [];
+
+  function uniquePush(list, value) {
+    if (!value || list.includes(value)) return;
+    list.push(value);
+  }
+
+  function removeValue(list, value) {
+    const idx = list.indexOf(value);
+    if (idx >= 0) list.splice(idx, 1);
+  }
+
+  function renderTags(list, tagsId, hiddenId, inputName) {
+    const tagsContainer = document.getElementById(tagsId);
+    const hiddenContainer = document.getElementById(hiddenId);
+    tagsContainer.innerHTML = "";
+    hiddenContainer.innerHTML = "";
+    list.forEach((code) => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.innerHTML = `<span>${labelByCode[code] || code}</span><button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>`;
+      tagsContainer.appendChild(chip);
+
+      const hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = inputName;
+      hidden.value = code;
+      hiddenContainer.appendChild(hidden);
+    });
+
+    tagsContainer.querySelectorAll(".tag-remove").forEach((button) => {
+      button.addEventListener("click", () => {
+        const code = button.dataset.code;
+        removeValue(list, code);
+        renderTags(list, tagsId, hiddenId, inputName);
+        updateSummary();
+      });
+    });
+  }
+
+  function renderBannerTree() {
+    const layoutMode = selectedValue("bannerLayoutMode") || "flat";
+    const tagsContainer = document.getElementById("treeTags");
+    const hiddenContainer = document.getElementById("bannerHiddenInputs");
+    const treeInput = document.getElementById("bannerTreeJson");
+    tagsContainer.innerHTML = "";
+    hiddenContainer.innerHTML = "";
+
+    bannerState.forEach((item, index) => {
+      const code = item.variable_code;
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      if (layoutMode === "tree") {
+        chip.innerHTML = `
+          <span><strong>L${index + 1}</strong>: ${labelByCode[code] || code}</span>
+          <button type="button" class="tag-move" data-dir="up" data-code="${code}" title="Move left">←</button>
+          <button type="button" class="tag-move" data-dir="down" data-code="${code}" title="Move right">→</button>
+          <button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>
+        `;
+      } else {
+        chip.innerHTML = `
+          <span>${labelByCode[code] || code}</span>
+          <button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>
+        `;
+      }
+      tagsContainer.appendChild(chip);
+
+      const hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = "banner_column_variables";
+      hidden.value = code;
+      hiddenContainer.appendChild(hidden);
+    });
+
+    if (layoutMode === "tree") {
+      treeInput.value = JSON.stringify(bannerState.map((item) => ({
+        variable_code: item.variable_code,
+        label: labelByCode[item.variable_code] || item.variable_code,
+      })));
+    } else {
+      treeInput.value = "[]";
+    }
+
+    tagsContainer.querySelectorAll(".tag-remove").forEach((button) => {
+      button.addEventListener("click", () => {
+        const code = button.dataset.code;
+        const idx = bannerState.findIndex((item) => item.variable_code === code);
+        if (idx >= 0) bannerState.splice(idx, 1);
+        renderBannerTree();
+        updateSummary();
+      });
+    });
+    tagsContainer.querySelectorAll(".tag-move").forEach((button) => {
+      button.addEventListener("click", () => {
+        const code = button.dataset.code;
+        const idx = bannerState.findIndex((item) => item.variable_code === code);
+        if (idx < 0) return;
+        if (button.dataset.dir === "up" && idx > 0) {
+          [bannerState[idx - 1], bannerState[idx]] = [bannerState[idx], bannerState[idx - 1]];
+        }
+        if (button.dataset.dir === "down" && idx < bannerState.length - 1) {
+          [bannerState[idx + 1], bannerState[idx]] = [bannerState[idx], bannerState[idx + 1]];
+        }
+        renderBannerTree();
+        updateSummary();
+      });
+    });
+  }
+
+  function selectedValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+
+  function updateSummary() {
+    const displayMode = selectedValue("displayMode");
+    const percentMode = selectedValue("percentMode");
+    const layoutMode = selectedValue("bannerLayoutMode") || "flat";
+
+    document.getElementById("rowSummary").textContent = rowState.length ? rowState.join(", ") : "Not selected";
+    document.getElementById("bannerSummary").textContent = bannerState.length
+      ? (layoutMode === "tree"
+          ? bannerState.map((item) => item.variable_code).join(" > ")
+          : bannerState.map((item) => item.variable_code).join(", "))
+      : "Not selected";
+    document.getElementById("displayModePreview").textContent = displayMode || "Count";
+    document.getElementById("percentModePreview").textContent = percentMode || "total_percent";
+    document.getElementById("percentModeSummaryRow").style.display = displayMode === "Count" ? "none" : "";
+    document.getElementById("continueButton").disabled = !(rowState.length && bannerState.length);
+
+    document.getElementById("rowSelectionPreview").textContent = rowState.length ? `Selected ${rowState.length}: ${rowState.join(", ")}` : "These questions will appear as sections and rows on the left side of the banner.";
+    document.getElementById("treeBuilderLabel").textContent = layoutMode === "tree" ? "Header Tree Builder (left to right)" : "Add banner column";
+    document.getElementById("addTreeBtn").textContent = layoutMode === "tree" ? "Add level" : "Add";
+    document.getElementById("bannerSelectionPreview").textContent = bannerState.length
+      ? (layoutMode === "tree"
+          ? `Header levels: ${bannerState.map((item) => item.variable_code).join(" > ")}`
+          : `Flat groups: ${bannerState.map((item) => item.variable_code).join(", ")}`)
+      : "Flat mode: add columns as normal groups. Tree mode: order levels left to right.";
+
+    const aiDisplayMode = document.getElementById("aiDisplayMode");
+    const aiPercentMode = document.getElementById("aiPercentMode");
+    if (aiDisplayMode) aiDisplayMode.value = displayMode;
+    if (aiPercentMode) aiPercentMode.value = percentMode;
+  }
+
+  function filterPicker(searchId, pickerId) {
+    const search = document.getElementById(searchId);
+    const picker = document.getElementById(pickerId);
+    if (!search || !picker) return;
+    search.addEventListener("input", () => {
+      const needle = search.value.trim().toLowerCase();
+      Array.from(picker.options).forEach((option) => {
+        option.hidden = !!needle && !(option.dataset.search || "").includes(needle);
+      });
+    });
+  }
+
+  function addFromPicker(pickerId, state, tagsId, hiddenId, inputName) {
+    const picker = document.getElementById(pickerId);
+    if (!picker) return;
+    uniquePush(state, picker.value);
+    renderTags(state, tagsId, hiddenId, inputName);
+    updateSummary();
+  }
+
+  function addTreeLevel() {
+    const picker = document.getElementById("treePicker");
+    if (!picker || !picker.value) return;
+    if (bannerState.some((item) => item.variable_code === picker.value)) return;
+    bannerState.push({ variable_code: picker.value });
+    renderBannerTree();
+    updateSummary();
+  }
+
+  function updateFilterPreview() {
+    const parts = [];
+    for (let i = 1; i <= 3; i++) {
+      const variableSelect = document.getElementById(`filter_variable_${i}`);
+      const valueSelect = document.getElementById(`filter_value_${i}`);
+      if (variableSelect && valueSelect && variableSelect.value && valueSelect.value) {
+        parts.push(`${variableSelect.value} = ${valueSelect.value}`);
+      }
+    }
+    document.getElementById("additionalFiltersPreview").textContent = parts.length ? parts.join("; ") : "None";
+  }
+
+  function populateFilterValue(selectId, valueId, selectedValueParam) {
+    const variableSelect = document.getElementById(selectId);
+    const valueSelect = document.getElementById(valueId);
+    if (!variableSelect || !valueSelect) return;
+    const options = valueOptionsByVariable[variableSelect.value] || [];
+    valueSelect.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "No filter value";
+    valueSelect.appendChild(emptyOption);
+    options.forEach((label) => {
+      const option = document.createElement("option");
+      option.value = label;
+      option.textContent = label;
+      if (selectedValueParam && selectedValueParam === label) option.selected = true;
+      valueSelect.appendChild(option);
+    });
+  }
+
+  initialRows.forEach((value) => uniquePush(rowState, value));
+  if (initialBannerTree && initialBannerTree.length) {
+    initialBannerTree.forEach((item) => {
+      if (item && item.variable_code && !bannerState.some((v) => v.variable_code === item.variable_code)) {
+        bannerState.push({ variable_code: item.variable_code });
+      }
+    });
+  } else {
+    initialBanners.forEach((value) => {
+      if (value && !bannerState.some((v) => v.variable_code === value)) {
+        bannerState.push({ variable_code: value });
+      }
+    });
+  }
+
+  renderTags(rowState, "rowTags", "rowHiddenInputs", "banner_row_variables");
+  renderBannerTree();
+  filterPicker("rowSearch", "rowPicker");
+  filterPicker("treeSearch", "treePicker");
+
+  document.getElementById("addRowBtn").addEventListener("click", () => {
+    addFromPicker("rowPicker", rowState, "rowTags", "rowHiddenInputs", "banner_row_variables");
+  });
+  document.getElementById("addTreeBtn").addEventListener("click", addTreeLevel);
+
+  ["displayMode", "percentMode"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", updateSummary);
+  });
+  const layoutModeEl = document.getElementById("bannerLayoutMode");
+  if (layoutModeEl) {
+    layoutModeEl.addEventListener("change", () => {
+      renderBannerTree();
+      updateSummary();
+    });
+  }
+
+  for (let i = 1; i <= 3; i++) {
+    const variableSelectId = `filter_variable_${i}`;
+    const valueSelectId = `filter_value_${i}`;
+    const existing = existingFilters[i - 1];
+    populateFilterValue(variableSelectId, valueSelectId, existing ? existing.value : "");
+    const variableSelect = document.getElementById(variableSelectId);
+    const valueSelect = document.getElementById(valueSelectId);
+    if (variableSelect) {
+      variableSelect.addEventListener("change", () => {
+        populateFilterValue(variableSelectId, valueSelectId, "");
+        updateFilterPreview();
+      });
+    }
+    if (valueSelect) valueSelect.addEventListener("change", updateFilterPreview);
+  }
+
+  updateSummary();
+  updateFilterPreview();
+})();
+</script>
+{% endblock %}

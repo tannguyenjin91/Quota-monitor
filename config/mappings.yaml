@@ -1,0 +1,43 @@
+sheet_detection:
+  question_sheet_candidates:
+    - Question
+    - Questions
+  data_sheet_candidates:
+    - Data
+    - Raw Data
+    - Raw
+
+rejection_column_candidates:
+  - Từ chối
+  - Từ Chối
+  - Tu choi
+  - Tu Choi
+
+parser_options:
+  question_header_row: 1
+  data_header_row: 5
+  data_start_row: 8
+
+eligible_question_types:
+  - SA
+  - MA
+  - FT
+
+default_display_mode: Count
+default_percent_mode: total_percent
+
+quota_eligibility:
+  SA: true
+  MA: false
+  FT: false
+  unknown: false
+
+field_rules:
+  max_distinct_for_quota: 20
+  id_like_keywords:
+    - id
+    - link
+    - image
+    - url
+    - time
+    - date

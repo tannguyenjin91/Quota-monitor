@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Report Flow - Step 3{% endblock %}
+{% block content %}
+{% set current_step = 3 %}
+{% include "_report_steps.html" %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Step 3: Render Report Output</h1>
+        <div class="text-muted">Report output rendered from the saved step 2 configuration, using the current banner engine.</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{{ url_for('web.report_step2', upload_id=upload.id) }}">Back to Step 2</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('web.dashboard', upload_id=upload.id) }}">Open Dashboard</a>
+    </div>
+</div>
+
+{% if report_output.mode == 'horizontal' %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white"><h2 class="h5 mb-0">Configured Output</h2></div>
+    <div class="table-responsive">
+        <table class="table table-sm quota-table align-middle mb-0 banner-table">
+            <thead>
+                <tr>
+                    {% if report_output.table.show_question_text %}<th rowspan="3">Question</th>{% endif %}
+                    {% if report_output.table.show_row_labels %}<th rowspan="3">Row Label</th>{% endif %}
+                    {% for header in report_output.table.metric_headers %}
+                    <th colspan="{{ header.span }}" class="text-center">{{ header.label }}</th>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    {% for header in report_output.table.group_headers %}
+                    <th colspan="{{ header.span }}" class="text-center">{{ header.label }}</th>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    {% for column in report_output.table.columns %}
+                    <th class="text-center">{{ column.bucket_label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_output.table.rows %}
+                <tr>
+                    {% if report_output.table.show_question_text %}<td>{{ row.question_label }}</td>{% endif %}
+                    {% if report_output.table.show_row_labels %}<td>{{ row.category_label }}</td>{% endif %}
+                    {% for cell in row.cells %}
+                    <td class="text-end">{{ cell.display }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white"><h2 class="h5 mb-0">Configured Output (Vertical)</h2></div>
+    <div class="table-responsive">
+        <table class="table table-sm quota-table align-middle mb-0 banner-table">
+            <thead>
+                <tr>
+                    <th>Metric / Group / Bucket</th>
+                    {% for label in report_output.transposed_columns %}
+                    <th class="text-center">{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_output.transposed_rows %}
+                <tr>
+                    <td>{{ row.row_label }}</td>
+                    {% for cell in row.cells %}
+                    <td class="text-end">{{ cell.display }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+<div class="d-flex justify-content-between mt-3">
+    <a class="btn btn-outline-secondary" href="{{ url_for('web.report_step2', upload_id=upload.id) }}">Previous: Step 2</a>
+    <a class="btn btn-primary" href="{{ url_for('web.report_step1', upload_id=upload.id) }}">Start new flow from Step 1</a>
+</div>
+{% endblock %}

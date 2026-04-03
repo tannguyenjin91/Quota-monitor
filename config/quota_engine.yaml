@@ -1,0 +1,358 @@
+project:
+  id: default_project
+  label: Default Quota Project
+
+derived_fields:
+  - key: age_group_std
+    label: Age group
+    type: range_bucket
+    source_key: raw__panel_age
+    default_value: ""
+    buckets:
+      - key: "18_29"
+        label: "18 - 29"
+        min: 18
+        max: 29
+      - key: "30_39"
+        label: "30 - 39"
+        min: 30
+        max: 39
+      - key: "40_49"
+        label: "40 - 49"
+        min: 40
+        max: 49
+      - key: "50_59"
+        label: "50 - 59"
+        min: 50
+        max: 59
+  - key: distance_direction_std
+    label: Distance x Direction
+    type: concat
+    sources:
+      - distance_std
+      - direction_std
+    separator: " | "
+    default_value: ""
+
+quota_groups:
+  - id: gender
+    key: GENDER
+    label: GENDER
+    level: 2
+    visible: true
+    denominator_key: total_accepted
+    buckets:
+      - key: total
+        label: Total
+        visible: true
+        rule:
+          operator: always_true
+      - key: male
+        label: Male
+        visible: true
+        rule:
+          operator: equals
+          field: gender_std
+          value: Nam
+      - key: female
+        label: Female
+        visible: true
+        rule:
+          operator: equals
+          field: gender_std
+          value: Nữ
+  - id: age_group
+    key: Age_group
+    label: Age_group
+    level: 2
+    visible: true
+    denominator_key: total_accepted
+    buckets:
+      - key: 18_29
+        label: 18 - 29
+        visible: true
+        rule:
+          operator: equals
+          field: age_group_std
+          value: 18_29
+      - key: 30_39
+        label: 30 - 39
+        visible: true
+        rule:
+          operator: equals
+          field: age_group_std
+          value: 30_39
+      - key: 40_49
+        label: 40 - 49
+        visible: true
+        rule:
+          operator: equals
+          field: age_group_std
+          value: 40_49
+      - key: 50_59
+        label: 50 - 59
+        visible: true
+        rule:
+          operator: equals
+          field: age_group_std
+          value: 50_59
+  - id: distance
+    key: DISTANCE
+    label: DISTANCE
+    level: 2
+    visible: true
+    denominator_key: total_accepted
+    buckets:
+      - key: near
+        label: Near
+        visible: true
+        rule:
+          operator: equals
+          field: distance_std
+          value: 0 - 2.49 km
+      - key: far_2_5
+        label: Far (2.5 - 5 km)
+        visible: true
+        rule:
+          operator: equals
+          field: distance_std
+          value: 2.5 - 5 km
+      - key: far_5_7
+        label: Far (5.1 - 7 km)
+        visible: true
+        rule:
+          operator: equals
+          field: distance_std
+          value: 5.1 - 7 km
+  - id: direction
+    key: DIRECTION
+    label: DIRECTION
+    level: 2
+    visible: true
+    denominator_key: total_accepted
+    buckets:
+      - key: north
+        label: North
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Bắc
+      - key: east
+        label: East
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Đông
+      - key: west
+        label: West
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Tây
+      - key: south
+        label: South
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Nam
+      - key: northeast
+        label: Northeast
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Đông Bắc
+      - key: southwest
+        label: Southwest
+        visible: true
+        rule:
+          operator: equals
+          field: direction_std
+          value: Tây Nam
+  - id: distance_direction
+    key: DISTANCE x DIRECTION
+    label: DISTANCE x DIRECTION
+    level: 2
+    visible: true
+    denominator_key: total_accepted
+    buckets:
+      - key: near_north
+        label: Near-North
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: equals
+              field: distance_std
+              value: 0 - 2.49 km
+            - operator: equals
+              field: direction_std
+              value: Bắc
+      - key: near_east
+        label: Near-East
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: equals
+              field: distance_std
+              value: 0 - 2.49 km
+            - operator: equals
+              field: direction_std
+              value: Đông
+      - key: near_west
+        label: Near-West
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: equals
+              field: distance_std
+              value: 0 - 2.49 km
+            - operator: equals
+              field: direction_std
+              value: Tây
+      - key: near_south
+        label: Near-South
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: equals
+              field: distance_std
+              value: 0 - 2.49 km
+            - operator: equals
+              field: direction_std
+              value: Nam
+      - key: far_northeast
+        label: Far-Northeast
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: equals
+              field: distance_std
+              value: 2.5 - 5 km
+            - operator: equals
+              field: direction_std
+              value: Đông Bắc
+      - key: far_southwest
+        label: Far-Southwest
+        visible: true
+        rule:
+          operator: all_of
+          rules:
+            - operator: in
+              field: distance_std
+              values:
+                - 2.5 - 5 km
+                - 5.1 - 7 km
+            - operator: equals
+              field: direction_std
+              value: Tây Nam
+
+denominators:
+  total_accepted:
+    label: Total accepted base
+    filter:
+      operator: equals
+      field: is_accepted_for_quota
+      value: true
+  valid_only:
+    label: Valid quota base
+    filter:
+      operator: equals
+      field: validation_status
+      value: valid
+
+row_definitions:
+  - id: valid_quota
+    question_key: quota_progress
+    question_label: Quota Progress
+    category_key: valid_quota
+    category_label: Valid Quota Completes
+    visible: true
+    filter:
+      operator: equals
+      field: validation_status
+      value: valid
+    percent_denominator:
+      mode: denominator_key
+      value: total_accepted
+  - id: accepted_base
+    question_key: sample_base
+    question_label: Sample Base
+    category_key: accepted_base
+    category_label: Accepted Rows
+    visible: true
+    filter:
+      operator: equals
+      field: is_accepted_for_quota
+      value: true
+    percent_denominator:
+      mode: denominator_key
+      value: total_accepted
+  - id: rejected_rows
+    question_key: quality
+    question_label: Quality
+    category_key: rejected_rows
+    category_label: Rejected Rows
+    visible: true
+    filter:
+      operator: equals
+      field: is_rejected
+      value: true
+    percent_denominator:
+      mode: overall_total
+  - id: hidden_invalid
+    question_key: hidden_quality
+    question_label: Hidden Quality
+    category_key: invalid_accepted
+    category_label: Invalid Accepted
+    visible: false
+    filter:
+      operator: equals
+      field: validation_status
+      value: invalid_accepted
+    percent_denominator:
+      mode: denominator_key
+      value: total_accepted
+
+output_views:
+  - id: banner_1_count
+    key: Banner 1 Count
+    label: Banner 1 Count
+    metric_type: count
+    visible: true
+  - id: banner_1_percent
+    key: Banner 1 %
+    label: Banner 1 %
+    metric_type: percent
+    visible: true
+  - id: banner_1_both
+    key: Banner 1 Mixed
+    label: Banner 1 Mixed
+    metric_type: both
+    visible: true
+
+output_table:
+  show_question_text: true
+  show_row_labels: true
+  hidden_question_keys:
+    - hidden_quality
+  group_order:
+    - GENDER
+    - Age_group
+    - DISTANCE
+    - DIRECTION
+    - DISTANCE x DIRECTION
+  hidden_group_keys: []
+  hidden_bucket_keys:
+    - distance.far_5_7
+  metric_modes:
+    - count
+    - percent
