@@ -1,81 +1,108 @@
 {% extends "base.html" %}
-{% block title %}Step 3 Dashboard{% endblock %}
+{% block title %}Step 3 — Dashboard{% endblock %}
+
+{% block step_bar %}
+<div class="step-bar">
+    <a class="step-item completed" href="{{ url_for('web.upload') }}">
+        <span class="step-number">&#10003;</span> Upload Data
+    </a>
+    <span class="step-divider"></span>
+    <a class="step-item completed" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">
+        <span class="step-number">&#10003;</span> Configure
+    </a>
+    <span class="step-divider"></span>
+    <span class="step-item active">
+        <span class="step-number">3</span> Dashboard
+    </span>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header mb-4">
-    <h1 class="h3 mb-1">Step 3: Dashboard Output</h1>
+<div class="page-header">
+    <h1>Dashboard Output</h1>
     <div class="text-muted">
         {% if dashboard.report_type == 'banner_table' %}
-        Banner table built from the selected row questions and banner columns.
+        Banner table from selected row questions and banner columns.
         {% else %}
-        Dynamic crosstab built from the selected horizontal and vertical variables.
+        Crosstab from selected horizontal and vertical variables.
         {% endif %}
     </div>
 </div>
 
-<div class="dashboard-meta mb-4">
-    <div><strong>Source file:</strong> {{ dashboard.source_file_name }}</div>
+<div class="dashboard-meta mb-3">
+    <div><strong>File:</strong> {{ dashboard.source_file_name }}</div>
     <div><strong>Processed:</strong> {{ dashboard.processed_at.strftime('%Y-%m-%d %H:%M:%S') if dashboard.processed_at else '' }}</div>
     {% if dashboard.report_type == 'banner_table' %}
-    <div><strong>Row questions:</strong> {{ dashboard.selected_row_variables|join(', ') }}</div>
-    <div><strong>Banner columns:</strong> {{ dashboard.selected_banner_variables|join(', ') }}</div>
-    <div><strong>Banner layout:</strong> {{ dashboard.selected_banner_layout_mode }}</div>
+    <div><strong>Rows:</strong> {{ dashboard.selected_row_variables|join(', ') }}</div>
+    <div><strong>Banners:</strong> {{ dashboard.selected_banner_variables|join(', ') }}</div>
+    <div><strong>Layout:</strong> {{ dashboard.selected_banner_layout_mode }}</div>
     {% if dashboard.selected_banner_tree %}
-    <div><strong>Header tree:</strong> {% for item in dashboard.selected_banner_tree %}L{{ loop.index }}: {{ item.variable_code }}{% if not loop.last %} &rarr; {% endif %}{% endfor %}</div>
+    <div><strong>Tree:</strong> {% for item in dashboard.selected_banner_tree %}L{{ loop.index }}: {{ item.variable_code }}{% if not loop.last %} &rarr; {% endif %}{% endfor %}</div>
     {% endif %}
     {% else %}
-    <div><strong>Horizontal variable:</strong> {{ dashboard.horizontal_label }}</div>
-    <div><strong>Vertical variable:</strong> {{ dashboard.vertical_label }}</div>
+    <div><strong>Horizontal:</strong> {{ dashboard.horizontal_label }}</div>
+    <div><strong>Vertical:</strong> {{ dashboard.vertical_label }}</div>
     {% endif %}
-    <div><strong>Display mode:</strong> {{ dashboard.display_mode }}</div>
-    <div><strong>Percent mode:</strong> {{ dashboard.percent_mode }}</div>
-    <div><strong>Accepted quota base:</strong> {{ dashboard.accepted_base_size }}</div>
-    <div><strong>Additional filters:</strong> {% if dashboard.selected_filters %}{% for item in dashboard.selected_filters %}{{ item.variable_code }} = {{ item.value }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}None{% endif %}</div>
+    <div><strong>Display:</strong> {{ dashboard.display_mode }}</div>
+    <div><strong>Percent:</strong> {{ dashboard.percent_mode }}</div>
+    <div><strong>Base:</strong> {{ dashboard.accepted_base_size }}</div>
+    <div><strong>Filters:</strong> {% if dashboard.selected_filters %}{% for item in dashboard.selected_filters %}{{ item.variable_code }} = {{ (item.values or [item.value or ''])|join(', ') }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}None{% endif %}</div>
 </div>
 
-<div class="d-flex gap-2 mb-3">
-    <a class="btn btn-outline-secondary" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">Back to Step 2</a>
-    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='quota_dashboard') }}">quota_dashboard.xlsx</a>
-    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='cleaned_data') }}">cleaned_data.xlsx</a>
-    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='question_dictionary') }}">question_dictionary.xlsx</a>
-    <a class="btn btn-outline-primary" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='mapping_audit') }}">mapping_audit.xlsx</a>
+<div class="export-bar mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">&larr; Step 2</a>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='quota_dashboard') }}">Export Dashboard .xlsx</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='cleaned_data') }}">Cleaned Data</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='question_dictionary') }}">Question Dict</a>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('web.download_export', upload_id=upload.id, export_type='mapping_audit') }}">Mapping Audit</a>
 </div>
 
 {% if dashboard.report_type == 'banner_table' %}
   {% for banner_view in dashboard.banner_views %}
-  <div class="card shadow-sm border-0 {% if not loop.first %}mt-4{% endif %}">
-      <div class="card-header bg-white">
-          <h2 class="h5 mb-0">{{ banner_view.mode }} table</h2>
-      </div>
+  <div class="card {% if not loop.first %}mt-3{% endif %}">
+      <div class="card-header"><h2 class="mb-0">{{ banner_view.mode }} Table</h2></div>
       <div class="table-responsive sticky-table">
-          <table class="table table-bordered align-middle mb-0 quota-dashboard-table banner-table">
+          <table class="table table-bordered mb-0 quota-dashboard-table banner-table">
               <thead>
                   <tr>
-                      <th rowspan="2" class="sticky-left">Question</th>
-                      <th rowspan="2" class="sticky-left-2">Category</th>
+                      <th rowspan="2" class="sticky-left" style="text-align:left">Question</th>
+                      <th rowspan="2" class="sticky-left-2" style="text-align:left">Category</th>
                       {% for group in dashboard.column_groups %}
-                      <th colspan="{{ group.columns|length }}">{{ group.question_label }}</th>
+                      <th colspan="{{ group.columns|length }}" class="{% if group.variable_code == '__overall__' %}total-group-header{% endif %}">{{ group.question_label }}</th>
                       {% endfor %}
                   </tr>
                   <tr>
                       {% for group in dashboard.column_groups %}
                           {% for column in group.columns %}
-                          <th>{{ column.label }}</th>
+                          <th class="{% if group.variable_code == '__overall__' %}col-total-header{% endif %}">{{ column.label }}</th>
                           {% endfor %}
                       {% endfor %}
                   </tr>
               </thead>
               <tbody>
                   {% for section in banner_view.sections %}
+                      {% set visible_rows = [] %}
                       {% for row in section.rows %}
+                          {% if not row.is_base or section.get('show_base', true) %}
+                              {% if visible_rows.append(row) %}{% endif %}
+                          {% endif %}
+                      {% endfor %}
+                      {% set ns = namespace(row_idx=0) %}
+                      {% for row in section.rows %}
+                      {% if not row.is_base or section.get('show_base', true) %}
                       <tr class="{% if row.is_base %}base-row{% endif %}">
-                          {% if loop.first %}
-                          <th rowspan="{{ section.rows|length }}" class="section-label sticky-left">{{ section.row_variable }}<br><span class="text-muted fw-normal">{{ section.question_label }}</span></th>
+                          {% if ns.row_idx == 0 %}
+                          <th rowspan="{{ visible_rows|length }}" class="section-label sticky-left">{{ section.row_variable }}<br><span class="text-muted fw-normal" style="font-size:.72rem">{{ section.question_label }}</span></th>
                           {% endif %}
                           <th class="sticky-left-2">{{ row.category_label }}</th>
                           {% for cell in row.cells %}
-                          <td>{{ cell.display }}</td>
+                          {% set col_idx = loop.index0 %}
+                          {% set is_total_col = dashboard.column_groups[0].variable_code == '__overall__' and col_idx < dashboard.column_groups[0].columns|length %}
+                          <td class="{% if is_total_col %}col-total{% endif %}">{{ cell.display }}</td>
                           {% endfor %}
                       </tr>
+                      {% set ns.row_idx = ns.row_idx + 1 %}
+                      {% endif %}
                       {% endfor %}
                   {% endfor %}
               </tbody>
@@ -83,29 +110,29 @@
       </div>
   </div>
   {% endfor %}
+
 {% else %}
-  <div class="card shadow-sm border-0 mb-4">
-      <div class="card-header bg-white"><h2 class="h5 mb-0">Drill-down</h2></div>
-      <div class="card-body">
-          <div class="small text-muted mb-3">Click a non-total cell in the main table to break it down further.</div>
-          <form method="get" class="row g-3">
+  <div class="card mb-3">
+      <div class="card-header"><h2 class="mb-0">Drill-down</h2></div>
+      <div class="card-body py-2">
+          <form method="get" class="row g-2 align-items-end">
               <div class="col-md-4">
                   <label class="form-label">Break down by</label>
                   <select class="form-select" name="drill_variable" onchange="this.form.submit()">
                       {% for item in drill_variable_choices %}
                       <option value="{{ item.variable_code }}" {% if dashboard.drill_variable == item.variable_code %}selected{% endif %}>
-                          {{ item.variable_code }} - {{ item.question_label }}
+                          {{ item.variable_code }} — {{ item.question_label }}
                       </option>
                       {% endfor %}
                   </select>
               </div>
               <input type="hidden" name="drill_row" value="{{ dashboard.drill_row_value }}">
               <input type="hidden" name="drill_column" value="{{ dashboard.drill_column_value }}">
-              <div class="col-md-8 d-flex align-items-end">
+              <div class="col-md-8 d-flex align-items-end pb-1">
                   {% if dashboard.drilldown %}
-                  <div class="small text-muted">Current context: {{ dashboard.vertical_label }} = <strong>{{ dashboard.drill_row_value }}</strong>; {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drill_column_value }}</strong></div>
+                  <span class="form-text mb-0">Context: {{ dashboard.vertical_label }} = <strong>{{ dashboard.drill_row_value }}</strong> &times; {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drill_column_value }}</strong></span>
                   {% else %}
-                  <div class="small text-muted">No drill context selected yet. Click a value cell below to open the breakdown.</div>
+                  <span class="form-text mb-0">Click any value cell below to open breakdown.</span>
                   {% endif %}
               </div>
           </form>
@@ -113,15 +140,13 @@
   </div>
 
   {% for table_view in dashboard.table_views %}
-  <div class="card shadow-sm border-0 {% if not loop.first %}mt-4{% endif %}">
-      <div class="card-header bg-white">
-          <h2 class="h5 mb-0">{{ table_view.mode }} table</h2>
-      </div>
+  <div class="card {% if not loop.first %}mt-3{% endif %}">
+      <div class="card-header"><h2 class="mb-0">{{ table_view.mode }} Table</h2></div>
       <div class="table-responsive sticky-table">
-          <table class="table table-bordered align-middle mb-0 quota-dashboard-table">
+          <table class="table table-bordered mb-0 quota-dashboard-table">
               <thead>
                   <tr>
-                      <th>{{ dashboard.vertical_label }}</th>
+                      <th style="text-align:left">{{ dashboard.vertical_label }}</th>
                       {% for category in dashboard.column_categories %}
                       <th>{{ category }}</th>
                       {% endfor %}
@@ -157,21 +182,18 @@
   {% endfor %}
 
   {% if dashboard.drilldown %}
-  <div class="card shadow-sm border-0 mt-4">
-      <div class="card-header bg-white">
-          <h2 class="h5 mb-0">Breakdown by {{ dashboard.drilldown.breakdown_label }}</h2>
-      </div>
+  <div class="card mt-3">
+      <div class="card-header"><h2 class="mb-0">Breakdown: {{ dashboard.drilldown.breakdown_label }}</h2></div>
       <div class="card-body">
-          <div class="small text-muted mb-3">
-              {{ dashboard.vertical_label }} = <strong>{{ dashboard.drilldown.row_value }}</strong>,
-              {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drilldown.column_value }}</strong>,
-              break down by <strong>{{ dashboard.drilldown.breakdown_label }}</strong>.
+          <div class="form-text mb-2">
+              {{ dashboard.vertical_label }} = <strong>{{ dashboard.drilldown.row_value }}</strong> &times;
+              {{ dashboard.horizontal_label }} = <strong>{{ dashboard.drilldown.column_value }}</strong>
           </div>
           <div class="table-responsive">
-              <table class="table table-bordered align-middle mb-0 quota-dashboard-table">
+              <table class="table table-bordered mb-0 quota-dashboard-table">
                   <thead>
                       <tr>
-                          <th>{{ dashboard.drilldown.breakdown_label }}</th>
+                          <th style="text-align:left">{{ dashboard.drilldown.breakdown_label }}</th>
                           <th>{{ dashboard.drilldown.display_mode }}</th>
                       </tr>
                   </thead>

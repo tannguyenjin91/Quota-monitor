@@ -1,3 +1,5 @@
+import re
+
 from utils.text_utils import normalize_key, normalize_text
 
 
@@ -9,6 +11,11 @@ def build_variable_catalog(data_headers, question_metadata, respondent_data_clea
         metadata = question_metadata.get(variable_code) or question_metadata.get(variable_code.split("_")[0], {})
         question_type = normalize_text(metadata.get("question_type", ""))
         question_label = normalize_text(metadata.get("question_label", "")) or variable_code
+
+        if question_type == "MA":
+            ma_label = resolve_ma_sub_label(variable_code, metadata)
+            if ma_label:
+                question_label = ma_label
         decoded_column = f"decoded__{variable_code}"
         distinct_values = []
         if decoded_column in respondent_data_clean.columns:
@@ -40,7 +47,107 @@ def build_variable_catalog(data_headers, question_metadata, respondent_data_clea
             }
         )
 
-    return {"variable_catalog": catalog, "counts_by_type": counts_by_type}
+    ma_groups = build_ma_groups(catalog)
+    catalog_with_groups = catalog + ma_groups
+
+    return {"variable_catalog": catalog_with_groups, "counts_by_type": counts_by_type}
+
+
+def resolve_ma_sub_label(variable_code: str, base_metadata: dict) -> str | None:
+    """Derive the per-option answer label for an MA sub-variable.
+
+    Q15_1  → suffix "1"  → answer_map["1"] → "VietnamNet"
+    Q15_o15 → suffix "o15" → "Other" option
+    """
+    match = re.match(r"^(.+?)_([^_]+)$", variable_code)
+    if not match:
+        return None
+
+    suffix = match.group(2)
+    answer_map = base_metadata.get("answer_map", {})
+    answer_labels = base_metadata.get("answer_labels_in_order", [])
+    answer_codes = base_metadata.get("answer_codes_in_order", [])
+
+    # Direct match: suffix "1" in answer_map
+    if suffix in answer_map:
+        return answer_map[suffix]
+
+    # "o" prefix = Other option (e.g., "o15", "o4")
+    if suffix.startswith("o"):
+        numeric_part = suffix[1:]
+        if numeric_part in answer_map:
+            return answer_map[numeric_part]
+        # Find label containing "Other" or "Khác"
+        for label in answer_labels:
+            lower = label.lower()
+            if "other" in lower or "khác" in lower or "khac" in lower:
+                return label
+        return f"Other ({suffix})"
+
+    # Positional fallback: suffix "3" → 3rd answer
+    try:
+        idx = int(suffix) - 1
+        if 0 <= idx < len(answer_labels):
+            return answer_labels[idx]
+    except ValueError:
+        pass
+
+    return None
+
+
+def build_ma_groups(catalog):
+    """Detect MA sub-variables (Q15_1, Q15_2, ...) and create a virtual MA_GROUP entry (Q15).
+
+    Also marks individual MA sub-variables with 'ma_base_code' so they can be
+    hidden from the selector regardless of whether a group is created.
+    """
+
+    ma_items = [item for item in catalog if item.get("question_type") == "MA"]
+    if not ma_items:
+        return []
+
+    groups = {}
+    for item in ma_items:
+        code = item["variable_code"]
+        match = re.match(r"^(.+?)_[^_]+$", code)
+        if not match:
+            continue
+        base_code = match.group(1)
+        if base_code not in groups:
+            groups[base_code] = []
+        groups[base_code].append(item)
+
+    existing_codes = {item["variable_code"] for item in catalog}
+    existing_non_ma = {
+        item["variable_code"]
+        for item in catalog
+        if item.get("question_type") not in ("MA",)
+    }
+
+    ma_group_entries = []
+    for base_code, members in groups.items():
+        if base_code in existing_non_ma:
+            continue
+        if base_code in existing_codes:
+            continue
+        first = members[0]
+        sub_labels = []
+        for member in members:
+            label = member.get("question_label", member["variable_code"])
+            if label not in sub_labels:
+                sub_labels.append(label)
+        ma_group_entries.append({
+            "variable_code": base_code,
+            "question_label": first.get("question_label", base_code),
+            "question_type": "MA_GROUP",
+            "available_codes": [m["variable_code"] for m in members],
+            "available_labels": sub_labels,
+            "distinct_count_in_data": len(members),
+            "quota_eligible": True,
+            "category_sort_mode": "code_order",
+            "source_sheet": first.get("source_sheet", ""),
+        })
+    return ma_group_entries
 
 
 def filter_variable_catalog(variable_catalog, search_text="", question_type="ALL", eligibility_mode="eligible_only", distinct_band="ALL", decoded_only=False, sort_key="default"):

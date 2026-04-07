@@ -8,7 +8,10 @@ import yaml
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from models import ParsedVariable, SavedQuotaConfig, UploadRun, db
-from services.ai_assist_service import suggest_quota_setup
+try:
+    from services.ai_assist_service import suggest_quota_setup
+except ImportError:
+    suggest_quota_setup = None
 from services.export_service import export_parse_outputs, export_quota_dashboard
 from services.file_service import allowed_file, load_cleaned_dataset, save_upload
 from services.preview_service import build_decoded_preview
@@ -140,7 +143,7 @@ def configure_quota(upload_id):
     upload_run = UploadRun.query.get_or_404(upload_id)
     mappings = load_mappings(current_app.config)
     all_variables = [to_variable_dict(item) for item in ParsedVariable.query.filter_by(upload_run_id=upload_id).all()]
-    selector_variables = list(all_variables)
+    selector_variables = build_selector_variables(all_variables)
     existing_config = SavedQuotaConfig.query.filter_by(upload_run_id=upload_id).order_by(SavedQuotaConfig.id.desc()).first()
     selected_horizontal = request.args.get("selected_horizontal") or (existing_config.selected_horizontal_variable if existing_config else "")
     selected_vertical = request.args.get("selected_vertical") or (existing_config.selected_vertical_variable if existing_config else "")
@@ -450,10 +453,31 @@ def parse_selected_filters(form_data):
     filters = []
     for index in range(1, 4):
         variable_code = form_data.get(f"filter_variable_{index}", "").strip()
-        selected_value = form_data.get(f"filter_value_{index}", "").strip()
-        if variable_code and selected_value:
-            filters.append({"variable_code": variable_code, "value": selected_value})
+        selected_values = form_data.getlist(f"filter_values_{index}")
+        selected_values = [v.strip() for v in selected_values if v.strip()]
+        if variable_code and selected_values:
+            filters.append({"variable_code": variable_code, "values": selected_values})
     return filters
+
+
+def build_selector_variables(all_variables):
+    """Filter variables for Step 2 selector: hide MA sub-variables, show MA_GROUPs."""
+    import re
+
+    ma_group_codes = {item["variable_code"] for item in all_variables if item["question_type"] == "MA_GROUP"}
+    all_codes = {item["variable_code"] for item in all_variables}
+    ma_sub_codes = set()
+    for item in all_variables:
+        if item["question_type"] != "MA":
+            continue
+        code = item["variable_code"]
+        match = re.match(r"^(.+?)_[^_]+$", code)
+        if not match:
+            continue
+        base_code = match.group(1)
+        if base_code in ma_group_codes or base_code in all_codes:
+            ma_sub_codes.add(code)
+    return [item for item in all_variables if item["variable_code"] not in ma_sub_codes]
 
 
 def choose_default_drill_variable(variable_choices):

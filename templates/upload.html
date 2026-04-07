@@ -1,14 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Step 1 Upload{% endblock %}
+{% block title %}Step 1 — Upload{% endblock %}
+
+{% block step_bar %}
+<div class="step-bar">
+    <span class="step-item active">
+        <span class="step-number">1</span> Upload Data
+    </span>
+    <span class="step-divider"></span>
+    <span class="step-item">
+        <span class="step-number">2</span> Configure
+    </span>
+    <span class="step-divider"></span>
+    <span class="step-item">
+        <span class="step-number">3</span> Dashboard
+    </span>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header mb-4">
-    <h1 class="h3 mb-1">Step 1: Upload And Parse Workbook</h1>
+<div class="page-header">
+    <h1>Upload & Parse Workbook</h1>
     <div class="text-muted">Upload a workbook with linked <code>Question</code> and <code>Data</code> sheets.</div>
 </div>
 
-<div class="row g-4">
-    <div class="col-12 col-xl-6">
-        <div class="card shadow-sm border-0">
+<div class="row g-3">
+    <div class="col-12 col-xl-7">
+        <div class="card">
+            <div class="card-header"><h2 class="mb-0">Upload file</h2></div>
             <div class="card-body">
                 <form method="post" enctype="multipart/form-data" id="uploadForm">
                     <div class="mb-3">
@@ -16,39 +34,39 @@
                         <input class="form-control" type="file" name="file" id="uploadFileInput" accept=".xlsx" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Note</label>
-                        <textarea class="form-control" name="note" rows="3" placeholder="Optional upload note"></textarea>
+                        <label class="form-label">Note (optional)</label>
+                        <textarea class="form-control" name="note" rows="2" placeholder="Upload note..."></textarea>
                     </div>
                     <div class="upload-progress-panel d-none" id="uploadProgressPanel">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong id="uploadProgressLabel">Đang upload file</strong>
-                            <span id="uploadProgressValue">0%</span>
+                            <strong id="uploadProgressLabel" style="font-size:.8rem">Uploading...</strong>
+                            <span id="uploadProgressValue" style="font-size:.78rem">0%</span>
                         </div>
                         <div class="progress" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" id="uploadProgressBar" style="width: 0%">0%</div>
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" id="uploadProgressBar" style="width: 0%"></div>
                         </div>
-                        <div class="small text-muted mt-2" id="uploadProgressHint">Chuẩn bị upload workbook...</div>
+                        <div class="form-text mt-1" id="uploadProgressHint">Preparing...</div>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
-                        <button class="btn btn-primary" type="submit" id="uploadSubmitButton">Upload And Parse</button>
+                        <button class="btn btn-primary" type="submit" id="uploadSubmitButton">Upload & Parse</button>
                     </div>
                 </form>
                 {% if uploads %}
-                <form class="mt-2" method="post" action="{{ url_for('web.clear_upload_history') }}" onsubmit="return confirm('Xóa toàn bộ history upload và file cache cũ?');">
-                    <button class="btn btn-outline-danger" type="submit">Xóa History Cache Cũ</button>
+                <form class="mt-2" method="post" action="{{ url_for('web.clear_upload_history') }}" onsubmit="return confirm('Clear all upload history and cached files?');">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Clear History</button>
                 </form>
                 {% endif %}
             </div>
         </div>
     </div>
-    <div class="col-12 col-xl-6">
-        <div class="card shadow-sm border-0">
+    <div class="col-12 col-xl-5">
+        <div class="card">
+            <div class="card-header"><h2 class="mb-0">Expected structure</h2></div>
             <div class="card-body">
-                <h2 class="h5">Expected workbook structure</h2>
-                <ul class="small mb-0">
-                    <li><code>Question</code> sheet: metadata and answer-code mappings.</li>
-                    <li><code>Data</code> sheet: variable headers on row 5 and respondent data from row 8.</li>
-                    <li><code>Question.Name of items</code> must link directly to <code>Data</code> row 5 headers.</li>
+                <ul class="mb-0" style="font-size:.8rem; padding-left:1.2rem">
+                    <li><strong>Question</strong> sheet — metadata and answer-code mappings.</li>
+                    <li><strong>Data</strong> sheet — variable headers on row 5, respondent data from row 8.</li>
+                    <li><code>Question.Name of items</code> must link to <code>Data</code> row 5 headers.</li>
                 </ul>
             </div>
         </div>
@@ -56,73 +74,24 @@
 </div>
 
 {% if current_upload %}
-<div class="card shadow-sm border-0 mt-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h2 class="h5 mb-0">Parse summary</h2>
-    </div>
-    <div class="card-body">
-        <div class="summary-strip">
-            <div><strong>Source file:</strong> {{ current_upload.original_file_name }}</div>
-            <div><strong>Question sheet:</strong> {{ current_upload.question_sheet_name }}</div>
-            <div><strong>Data sheet:</strong> {{ current_upload.data_sheet_name }}</div>
-            <div><strong>Total parsed variables:</strong> {{ current_upload.parsed_variable_count }}</div>
-            <div><strong>Total respondent rows:</strong> {{ current_upload.raw_row_count }}</div>
-            <div><strong>Total quota-eligible variables:</strong> {{ quota_eligible_count }}</div>
-            <div><strong>Từ chối found:</strong> {{ 'Yes' if current_upload.tu_choi_found else 'No' }}</div>
-            <div><strong>SA variables:</strong> {{ current_upload.sa_variable_count }}</div>
-            <div><strong>MA variables:</strong> {{ current_upload.ma_variable_count }}</div>
-            <div><strong>FT variables:</strong> {{ current_upload.ft_variable_count }}</div>
-        </div>
-    </div>
-</div>
-{% if preview %}
-<div class="card shadow-sm border-0 mt-4">
-    <div class="card-header bg-white">
-        <h2 class="h5 mb-0">Preview dữ liệu đã decode</h2>
-    </div>
-    <div class="card-body">
-        <div class="small text-muted mb-3">Các giá trị đã decode được ưu tiên hiển thị. Nếu có mapping code, ô sẽ hiển thị dạng “decoded label (code: raw)”.</div>
-        <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-                <thead>
-                    <tr>
-                        {% for column in preview.columns %}
-                        <th>{{ column.label }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in preview.rows %}
-                    <tr>
-                        {% for column in preview.columns %}
-                        <td>{{ row[column.key] }}</td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
 <div class="d-flex justify-content-end mt-3">
-    <a class="btn btn-primary" href="{{ url_for('web.configure_quota', upload_id=current_upload.id) }}">Continue to Step 2</a>
+    <a class="btn btn-primary" href="{{ url_for('web.configure_quota', upload_id=current_upload.id) }}">Continue to Step 2 &rarr;</a>
 </div>
 {% endif %}
 
 {% if uploads %}
-<div class="card shadow-sm border-0 mt-4">
-    <div class="card-header bg-white"><h2 class="h5 mb-0">Recent uploads</h2></div>
+<div class="card mt-3">
+    <div class="card-header"><h2 class="mb-0">Recent Uploads</h2></div>
     <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
+        <table class="table table-sm table-hover mb-0" style="font-size:.8rem">
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>File</th>
                     <th>Status</th>
-                    <th>Question sheet</th>
-                    <th>Data sheet</th>
-                    <th>Rows</th>
+                    <th>Question</th>
+                    <th>Data</th>
+                    <th class="text-center">Rows</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -131,10 +100,16 @@
                 <tr>
                     <td>{{ upload.id }}</td>
                     <td>{{ upload.original_file_name }}</td>
-                    <td>{{ upload.processing_status }}</td>
-                    <td>{{ upload.question_sheet_name or '' }}</td>
-                    <td>{{ upload.data_sheet_name or '' }}</td>
-                    <td>{{ upload.raw_row_count }}</td>
+                    <td>
+                        {% if upload.processing_status == 'completed' %}
+                        <span style="color:var(--success); font-weight:600">completed</span>
+                        {% else %}
+                        {{ upload.processing_status }}
+                        {% endif %}
+                    </td>
+                    <td>{{ upload.question_sheet_name or '—' }}</td>
+                    <td>{{ upload.data_sheet_name or '—' }}</td>
+                    <td class="text-center">{{ upload.raw_row_count }}</td>
                     <td>
                         {% if upload.processing_status == 'completed' %}
                         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('web.configure_quota', upload_id=upload.id) }}">Step 2</a>
@@ -148,6 +123,7 @@
 </div>
 {% endif %}
 {% endblock %}
+
 {% block scripts %}
 <script>
 (() => {
@@ -165,7 +141,6 @@
   function setProgress(percent, label, hint) {
     const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
     progressBar.style.width = `${safePercent}%`;
-    progressBar.textContent = `${safePercent}%`;
     progressValue.textContent = `${safePercent}%`;
     if (label) progressLabel.textContent = label;
     if (hint) progressHint.textContent = hint;
@@ -173,59 +148,50 @@
 
   uploadForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    if (!fileInput.files.length) {
-      return;
-    }
+    if (!fileInput.files.length) return;
 
     const formData = new FormData(uploadForm);
     formData.append('ajax', '1');
 
     submitButton.disabled = true;
     progressPanel.classList.remove('d-none');
-    setProgress(0, 'Đang upload file', `Đang gửi ${fileInput.files[0].name} lên server...`);
+    setProgress(0, 'Uploading...', `Sending ${fileInput.files[0].name}...`);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', uploadForm.action || window.location.pathname, true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-    xhr.upload.addEventListener('progress', (progressEvent) => {
-      if (!progressEvent.lengthComputable) {
-        return;
-      }
-      const percent = (progressEvent.loaded / progressEvent.total) * 100;
-      setProgress(percent, 'Đang upload file', 'Đang truyền dữ liệu workbook lên server...');
+    xhr.upload.addEventListener('progress', (e) => {
+      if (!e.lengthComputable) return;
+      setProgress((e.loaded / e.total) * 100, 'Uploading...', 'Transferring workbook data...');
     });
 
     xhr.onreadystatechange = () => {
       if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
-        setProgress(100, 'Upload hoàn tất', 'Server đã nhận file, đang parse workbook và build cache...');
+        setProgress(100, 'Processing...', 'Server received file, parsing workbook...');
       }
     };
 
     xhr.onload = () => {
       submitButton.disabled = false;
       let payload = {};
-      try {
-        payload = JSON.parse(xhr.responseText || '{}');
-      } catch (error) {
-        payload = {};
-      }
+      try { payload = JSON.parse(xhr.responseText || '{}'); } catch (e) { payload = {}; }
 
       if (xhr.status >= 200 && xhr.status < 300 && payload.ok && payload.redirect_url) {
-        setProgress(100, 'Hoàn tất', 'Upload và parse hoàn tất. Đang chuyển sang màn preview...');
+        setProgress(100, 'Done', 'Redirecting to preview...');
         window.location.href = payload.redirect_url;
         return;
       }
 
       const message = payload.error || 'Upload failed. Please try again.';
-      setProgress(0, 'Upload lỗi', message);
+      setProgress(0, 'Error', message);
       alert(message);
     };
 
     xhr.onerror = () => {
       submitButton.disabled = false;
-      setProgress(0, 'Upload lỗi', 'Không thể kết nối tới server trong lúc upload.');
-      alert('Không thể kết nối tới server trong lúc upload.');
+      setProgress(0, 'Error', 'Cannot connect to server.');
+      alert('Cannot connect to server.');
     };
 
     xhr.send(formData);

@@ -1,6 +1,6 @@
 from typing import Iterable, List, Sequence
 
-from rapidfuzz import fuzz
+from thefuzz import fuzz
 
 from utils.text_utils import normalize_header, normalize_text
 

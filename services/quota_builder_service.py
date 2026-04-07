@@ -120,6 +120,23 @@ def build_banner_table(
                     "rows": rows,
                 }
             )
+        # Mark sections where base row should be hidden (same base as first section)
+        if len(sections) > 1:
+            first_base_cells = None
+            for section in sections:
+                base_row = next((r for r in section["rows"] if r.get("is_base")), None)
+                if base_row is None:
+                    continue
+                if first_base_cells is None:
+                    first_base_cells = [c.get("count", 0) for c in base_row["cells"]]
+                    section["show_base"] = True
+                else:
+                    current_cells = [c.get("count", 0) for c in base_row["cells"]]
+                    section["show_base"] = current_cells != first_base_cells
+        else:
+            for section in sections:
+                section["show_base"] = True
+
         banner_views.append({"mode": mode, "sections": sections})
 
     return {
@@ -192,13 +209,14 @@ def apply_additional_filters(cleaned_df: pd.DataFrame, selected_filters):
     filtered_df = cleaned_df.copy()
     for item in selected_filters or []:
         variable_code = item.get("variable_code", "")
-        selected_value = item.get("value", "")
-        if not variable_code or selected_value == "":
+        # Support both old format {"value": "x"} and new format {"values": ["x", "y"]}
+        values = item.get("values") or ([item["value"]] if item.get("value") else [])
+        if not variable_code or not values:
             continue
         column_name = f"decoded__{variable_code}"
         if column_name not in filtered_df.columns:
             continue
-        filtered_df = filtered_df[filtered_df[column_name].fillna("") == selected_value]
+        filtered_df = filtered_df[filtered_df[column_name].fillna("").isin(values)]
     return filtered_df
 
 
@@ -417,7 +435,8 @@ def build_banner_section_rows(
     )
 
     row_series_name = f"decoded__{row_variable}"
-    if row_series_name in accepted_df.columns:
+    is_ma_group = row_entry.get("question_type") == "MA_GROUP"
+    if row_series_name in accepted_df.columns and not is_ma_group:
         scoped_df = accepted_df[accepted_df[row_series_name].fillna("") != ""].copy()
         categories = ordered_categories(row_entry, scoped_df[row_series_name])
         for category in categories:
