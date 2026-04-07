@@ -359,9 +359,10 @@ body {
 .quota-dashboard-table td {
     text-align: center;
     vertical-align: middle;
-    padding: 0.35rem 0.6rem;
+    padding: 0.25rem 0.4rem;
     white-space: nowrap;
     border-color: var(--border);
+    max-width: 6rem;
 }
 
 .quota-dashboard-table thead th {
@@ -377,16 +378,12 @@ body {
     border-bottom: 2px solid var(--border);
 }
 
-/* Two-row header: first row at top:0, second row sticks below first */
-.quota-dashboard-table thead tr:first-child th {
-    top: 0;
-    z-index: 4;
-}
-
-.quota-dashboard-table thead tr:nth-child(2) th {
-    top: 1.8rem; /* height of first header row */
-    z-index: 3;
-}
+/* Multi-row sticky header: each row sticks below the previous */
+.quota-dashboard-table thead tr:nth-child(1) th { top: 0; z-index: 7; }
+.quota-dashboard-table thead tr:nth-child(2) th { top: 1.7rem; z-index: 6; }
+.quota-dashboard-table thead tr:nth-child(3) th { top: 3.4rem; z-index: 5; }
+.quota-dashboard-table thead tr:nth-child(4) th { top: 5.1rem; z-index: 4; }
+.quota-dashboard-table thead tr:nth-child(5) th { top: 6.8rem; z-index: 3; }
 
 /* Row header cells: left aligned */
 .quota-dashboard-table tbody th {
@@ -435,12 +432,15 @@ body {
 
 .cell-count {
     font-weight: 700;
+    font-size: 0.76rem;
     color: var(--text);
+    line-height: 1.1;
 }
 
 .cell-percent {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.64rem;
+    line-height: 1.1;
 }
 
 .drill-link {
@@ -457,12 +457,18 @@ body {
 
 /* ===== BANNER TABLE (Step 3) ===== */
 .banner-table .section-label {
-    min-width: 160px;
-    max-width: 220px;
+    min-width: 140px;
+    max-width: 200px;
     background: #eef2ff !important;
     vertical-align: top;
     text-align: left;
-    font-size: 0.76rem;
+    font-size: 0.74rem;
+}
+
+/* Override max-width for sticky label columns */
+.banner-table .sticky-left,
+.banner-table .sticky-left-2 {
+    max-width: none;
 }
 
 .banner-table .sticky-left {
@@ -473,7 +479,7 @@ body {
 
 .banner-table thead .sticky-left,
 .banner-table thead .sticky-left-2 {
-    z-index: 5;
+    z-index: 8;
 }
 
 .banner-table .sticky-left-2 {

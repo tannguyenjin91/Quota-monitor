@@ -62,22 +62,20 @@
   <div class="card {% if not loop.first %}mt-3{% endif %}">
       <div class="card-header"><h2 class="mb-0">{{ banner_view.mode }} Table</h2></div>
       <div class="table-responsive sticky-table">
-          <table class="table table-bordered mb-0 quota-dashboard-table banner-table">
+          <table class="table table-bordered mb-0 quota-dashboard-table banner-table" data-header-depth="{{ dashboard.header_rows|length }}">
               <thead>
+                  {% for header_row in dashboard.header_rows %}
                   <tr>
-                      <th rowspan="2" class="sticky-left" style="text-align:left">Question</th>
-                      <th rowspan="2" class="sticky-left-2" style="text-align:left">Category</th>
-                      {% for group in dashboard.column_groups %}
-                      <th colspan="{{ group.columns|length }}" class="{% if group.variable_code == '__overall__' %}total-group-header{% endif %}">{{ group.question_label }}</th>
+                      {% for cell in header_row %}
+                      <th
+                          {% if cell.colspan and cell.colspan > 1 %}colspan="{{ cell.colspan }}"{% endif %}
+                          {% if cell.rowspan and cell.rowspan > 1 %}rowspan="{{ cell.rowspan }}"{% endif %}
+                          class="{{ cell.class or '' }}"
+                          {% if cell.align %}style="text-align:{{ cell.align }}"{% endif %}
+                      >{{ cell.label }}</th>
                       {% endfor %}
                   </tr>
-                  <tr>
-                      {% for group in dashboard.column_groups %}
-                          {% for column in group.columns %}
-                          <th class="{% if group.variable_code == '__overall__' %}col-total-header{% endif %}">{{ column.label }}</th>
-                          {% endfor %}
-                      {% endfor %}
-                  </tr>
+                  {% endfor %}
               </thead>
               <tbody>
                   {% for section in banner_view.sections %}
@@ -98,7 +96,14 @@
                           {% for cell in row.cells %}
                           {% set col_idx = loop.index0 %}
                           {% set is_total_col = dashboard.column_groups[0].variable_code == '__overall__' and col_idx < dashboard.column_groups[0].columns|length %}
-                          <td class="{% if is_total_col %}col-total{% endif %}">{{ cell.display }}</td>
+                          <td class="{% if is_total_col %}col-total{% endif %}">
+                            {%- if cell.display is string and '\n' in cell.display -%}
+                              {% set parts = cell.display.split('\n') %}
+                              <span class="cell-count">{{ parts[0] }}</span><br><span class="cell-percent">{{ parts[1] }}</span>
+                            {%- else -%}
+                              {{ cell.display }}
+                            {%- endif -%}
+                          </td>
                           {% endfor %}
                       </tr>
                       {% set ns.row_idx = ns.row_idx + 1 %}

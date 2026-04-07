@@ -139,11 +139,20 @@ def build_banner_table(
 
         banner_views.append({"mode": mode, "sections": sections})
 
+    header_rows = build_banner_header_rows(
+        column_groups=column_groups,
+        banner_layout_mode=banner_layout_mode,
+        banner_variables=banner_variables,
+        accepted_df=accepted_df,
+        variable_catalog_lookup=variable_catalog_lookup,
+    )
+
     return {
         "report_type": "banner_table",
         "selected_banner_variables": banner_variables,
         "selected_banner_layout_mode": banner_layout_mode,
         "column_groups": column_groups,
+        "header_rows": header_rows,
         "flat_columns": flat_columns,
         "sections": banner_views[0]["sections"] if banner_views else [],
         "banner_views": banner_views,
@@ -488,6 +497,102 @@ def is_selected_ma_value(value):
     if normalized in {"", "0", "false", "no", "khong", "không", "none", "nan"}:
         return False
     return True
+
+
+def build_banner_header_rows(column_groups, banner_layout_mode, banner_variables, accepted_df, variable_catalog_lookup):
+    """Build header rows for banner table. Tree mode produces N rows for N variables."""
+    if banner_layout_mode == "tree" and banner_variables:
+        return _build_tree_header_rows(banner_variables, accepted_df, variable_catalog_lookup)
+    return _build_flat_header_rows(column_groups)
+
+
+def _build_flat_header_rows(column_groups):
+    """Standard 2-row header for flat mode."""
+    row0 = [
+        {"label": "Question", "rowspan": 2, "colspan": 1, "class": "sticky-left", "align": "left"},
+        {"label": "Category", "rowspan": 2, "colspan": 1, "class": "sticky-left-2", "align": "left"},
+    ]
+    row1 = []
+    for group in column_groups:
+        is_total = group["variable_code"] == "__overall__"
+        row0.append({
+            "label": group["question_label"],
+            "colspan": len(group["columns"]),
+            "rowspan": 1,
+            "class": "total-group-header" if is_total else "",
+        })
+        for col in group["columns"]:
+            row1.append({
+                "label": col["label"],
+                "colspan": 1,
+                "rowspan": 1,
+                "class": "col-total-header" if is_total else "",
+            })
+    return [row0, row1]
+
+
+def _build_tree_header_rows(banner_variables, accepted_df, variable_catalog_lookup):
+    """Multi-level header rows for tree mode: N variables → N header rows."""
+    depth = len(banner_variables)
+    all_cats = []
+    for var_code in banner_variables:
+        entry = variable_catalog_lookup.get(var_code, {})
+        cats = ordered_categories(entry, accepted_df.get(f"decoded__{var_code}", pd.Series(dtype=str)))
+        all_cats.append(cats)
+
+    if depth == 1:
+        row = [
+            {"label": "Question", "rowspan": 1, "colspan": 1, "class": "sticky-left", "align": "left"},
+            {"label": "Category", "rowspan": 1, "colspan": 1, "class": "sticky-left-2", "align": "left"},
+            {"label": "Total", "rowspan": 1, "colspan": 1, "class": "col-total-header"},
+        ]
+        for cat in all_cats[0]:
+            row.append({"label": cat, "rowspan": 1, "colspan": 1, "class": ""})
+        return [row]
+
+    # depth >= 2
+    header_rows = []
+    for level in range(depth):
+        row = []
+
+        if level == 0:
+            # Sticky columns + Overall Total
+            row.append({"label": "Question", "rowspan": depth, "colspan": 1, "class": "sticky-left", "align": "left"})
+            row.append({"label": "Category", "rowspan": depth, "colspan": 1, "class": "sticky-left-2", "align": "left"})
+            row.append({"label": "Total", "rowspan": depth, "colspan": 1, "class": "col-total-header"})
+
+            # L0 categories: each spans (1 group-total + product of deeper cats)
+            combo_count = 1
+            for j in range(1, depth):
+                combo_count *= len(all_cats[j])
+            for cat in all_cats[0]:
+                row.append({"label": cat, "colspan": 1 + combo_count, "rowspan": 1, "class": ""})
+
+        elif level == 1:
+            # For each L0 category: group-total + L1 categories
+            combo_below = 1
+            for j in range(2, depth):
+                combo_below *= len(all_cats[j])
+            for _l0 in range(len(all_cats[0])):
+                row.append({"label": "Total", "rowspan": depth - 1, "colspan": 1, "class": ""})
+                for cat in all_cats[1]:
+                    cs = combo_below if depth > 2 else 1
+                    row.append({"label": cat, "colspan": cs, "rowspan": 1, "class": ""})
+
+        else:
+            # Level 2+: repeat for each ancestor combination
+            repeat = len(all_cats[0])
+            for j in range(1, level):
+                repeat *= len(all_cats[j])
+            combo_below = 1
+            for j in range(level + 1, depth):
+                combo_below *= len(all_cats[j])
+            for _r in range(repeat):
+                for cat in all_cats[level]:
+                    row.append({"label": cat, "colspan": combo_below if combo_below > 1 else 1, "rowspan": 1, "class": ""})
+
+        header_rows.append(row)
+    return header_rows
 
 
 def filter_by_decoded_values(input_df: pd.DataFrame, filters: list[dict]):
