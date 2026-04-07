@@ -232,6 +232,8 @@ def configure_quota(upload_id):
             )
 
         if not selected_row_variables or not selected_banner_variables:
+            if wants_json_response():
+                return jsonify({"ok": False, "error": "Choose at least one row question and one banner column group."}), 400
             flash("Choose at least one row question and one banner column group.", "danger")
             return redirect(url_for("web.configure_quota", upload_id=upload_id))
 
@@ -249,6 +251,9 @@ def configure_quota(upload_id):
         )
         db.session.add(saved_config)
         db.session.commit()
+
+        if wants_json_response():
+            return jsonify({"ok": True, "redirect_url": url_for("web.dashboard", upload_id=upload_id)})
         return redirect(url_for("web.dashboard", upload_id=upload_id))
 
     accepted_base = upload_run.accepted_row_count

@@ -154,6 +154,17 @@
         </div>
     </div>
 
+    <div class="upload-progress-panel d-none mt-3" id="buildProgressPanel">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong id="buildProgressLabel" style="font-size:.8rem">Building dashboard...</strong>
+            <span id="buildProgressValue" style="font-size:.78rem">0%</span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Build progress" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="buildProgressBar" style="width: 0%"></div>
+        </div>
+        <div class="form-text mt-1" id="buildProgressHint">Preparing...</div>
+    </div>
+
     <div class="d-flex justify-content-between mt-3">
         <a class="btn btn-outline-secondary" href="{{ url_for('web.upload') }}">&larr; Back to Step 1</a>
         <button class="btn btn-primary" type="submit" id="continueButton">Continue to Step 3 &rarr;</button>
@@ -479,6 +490,83 @@
 
   updateSummary();
   updateFilterPreview();
+
+  // --- AJAX form submission with progress bar ---
+  const bannerForm = document.getElementById('bannerForm');
+  const continueBtn = document.getElementById('continueButton');
+  const buildPanel = document.getElementById('buildProgressPanel');
+  const buildBar = document.getElementById('buildProgressBar');
+  const buildValue = document.getElementById('buildProgressValue');
+  const buildLabel = document.getElementById('buildProgressLabel');
+  const buildHint = document.getElementById('buildProgressHint');
+
+  function setBuildProgress(pct, label, hint) {
+    const safe = Math.max(0, Math.min(100, Math.round(pct)));
+    buildBar.style.width = `${safe}%`;
+    buildValue.textContent = `${safe}%`;
+    if (label) buildLabel.textContent = label;
+    if (hint) buildHint.textContent = hint;
+  }
+
+  bannerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    continueBtn.disabled = true;
+    buildPanel.classList.remove('d-none');
+    setBuildProgress(5, 'Saving configuration...', 'Sending selections to server...');
+
+    const formData = new FormData(bannerForm);
+    formData.append('ajax', '1');
+
+    let progress = 5;
+    const timer = setInterval(() => {
+      progress = Math.min(progress + 2, 92);
+      const steps = [
+        [10, 'Building tables...', 'Computing cross-tabulations...'],
+        [30, 'Building tables...', 'Calculating row sections...'],
+        [50, 'Building tables...', 'Processing banner columns...'],
+        [70, 'Rendering...', 'Generating header structure...'],
+        [85, 'Rendering...', 'Preparing dashboard output...'],
+      ];
+      for (const [threshold, lbl, hnt] of steps) {
+        if (progress >= threshold && progress < threshold + 3) {
+          setBuildProgress(progress, lbl, hnt);
+          return;
+        }
+      }
+      setBuildProgress(progress);
+    }, 300);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', bannerForm.action || window.location.pathname, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.onload = () => {
+      clearInterval(timer);
+      continueBtn.disabled = false;
+      let payload = {};
+      try { payload = JSON.parse(xhr.responseText || '{}'); } catch (_) { payload = {}; }
+
+      if (xhr.status >= 200 && xhr.status < 300 && payload.ok && payload.redirect_url) {
+        setBuildProgress(100, 'Done!', 'Redirecting to dashboard...');
+        window.location.href = payload.redirect_url;
+        return;
+      }
+      const msg = payload.error || 'Failed to build dashboard. Please try again.';
+      setBuildProgress(0, 'Error', msg);
+      buildPanel.classList.add('d-none');
+      alert(msg);
+    };
+
+    xhr.onerror = () => {
+      clearInterval(timer);
+      continueBtn.disabled = false;
+      setBuildProgress(0, 'Error', 'Cannot connect to server.');
+      buildPanel.classList.add('d-none');
+      alert('Cannot connect to server.');
+    };
+
+    xhr.send(formData);
+  });
 })();
 </script>
 {% endblock %}

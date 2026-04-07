@@ -157,28 +157,45 @@
     progressPanel.classList.remove('d-none');
     setProgress(0, 'Uploading...', `Sending ${fileInput.files[0].name}...`);
 
+    let processingTimer = null;
+    let processingProgress = 50;
+
+    function startProcessingAnimation() {
+      processingTimer = setInterval(() => {
+        processingProgress = Math.min(processingProgress + 1, 95);
+        setProgress(processingProgress, 'Processing...', 'Parsing workbook, building variable catalog...');
+      }, 400);
+    }
+
+    function stopProcessingAnimation() {
+      if (processingTimer) { clearInterval(processingTimer); processingTimer = null; }
+    }
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', uploadForm.action || window.location.pathname, true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
     xhr.upload.addEventListener('progress', (e) => {
       if (!e.lengthComputable) return;
-      setProgress((e.loaded / e.total) * 100, 'Uploading...', 'Transferring workbook data...');
+      const transferPct = (e.loaded / e.total) * 50;
+      setProgress(transferPct, 'Uploading...', 'Transferring workbook data...');
     });
 
     xhr.onreadystatechange = () => {
       if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
-        setProgress(100, 'Processing...', 'Server received file, parsing workbook...');
+        setProgress(50, 'Processing...', 'Server received file, parsing workbook...');
+        startProcessingAnimation();
       }
     };
 
     xhr.onload = () => {
+      stopProcessingAnimation();
       submitButton.disabled = false;
       let payload = {};
       try { payload = JSON.parse(xhr.responseText || '{}'); } catch (e) { payload = {}; }
 
       if (xhr.status >= 200 && xhr.status < 300 && payload.ok && payload.redirect_url) {
-        setProgress(100, 'Done', 'Redirecting to preview...');
+        setProgress(100, 'Done!', 'Redirecting...');
         window.location.href = payload.redirect_url;
         return;
       }
@@ -189,6 +206,7 @@
     };
 
     xhr.onerror = () => {
+      stopProcessingAnimation();
       submitButton.disabled = false;
       setProgress(0, 'Error', 'Cannot connect to server.');
       alert('Cannot connect to server.');
