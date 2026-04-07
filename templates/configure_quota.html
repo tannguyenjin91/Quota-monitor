@@ -53,26 +53,37 @@
                             <div class="form-text" id="rowSelectionPreview">Appears as sections/rows on the left side.</div>
                         </div>
 
-                        <!-- Banner columns -->
+                        <!-- Banner columns: shared picker -->
                         <div class="col-md-6">
                             <label class="form-label">Banner columns <span class="fw-normal text-muted">(Ctrl+click multi-select)</span></label>
-                            <select class="form-select mb-2" name="banner_layout_mode" id="bannerLayoutMode">
-                                <option value="flat" {% if selected_banner_layout_mode == 'flat' %}selected{% endif %}>Flat (independent)</option>
-                                <option value="tree" {% if selected_banner_layout_mode == 'tree' %}selected{% endif %}>Tree (nested)</option>
-                            </select>
-                            <input class="form-control mb-2" type="text" id="treeSearch" placeholder="Search code, label, type...">
-                            <select class="form-select mb-2" id="treePicker" multiple size="12" style="font-size:.78rem">
+                            <input class="form-control mb-2" type="text" id="bannerSearch" placeholder="Search code, label, type...">
+                            <select class="form-select mb-2" id="bannerPicker" multiple size="10" style="font-size:.78rem">
                                 {% for variable in selector_variables %}
                                 <option value="{{ variable.variable_code }}" data-search="{{ (variable.variable_code ~ ' ' ~ variable.question_label ~ ' ' ~ variable.question_type ~ ' ' ~ ((variable.available_labels or [])|join(' '))) | lower }}">
                                     {{ variable.variable_code }} — {{ variable.question_label }}
                                 </option>
                                 {% endfor %}
                             </select>
-                            <button type="button" class="btn btn-outline-primary btn-sm mb-2" id="addTreeBtn">Add selected</button>
-                            <div class="tag-list" id="treeTags"></div>
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="addTreeBtn">+ Nested</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="addFlatBtn">+ Independent</button>
+                            </div>
+
+                            <!-- Nested (Tree) section -->
+                            <div class="mb-2">
+                                <div class="form-text fw-semibold mb-1">Nested (Tree) — L1 &gt; L2 &gt; ...</div>
+                                <div class="tag-list" id="treeTags"></div>
+                            </div>
+
+                            <!-- Independent (Flat) section -->
+                            <div class="mb-2">
+                                <div class="form-text fw-semibold mb-1">Independent (Flat)</div>
+                                <div class="tag-list" id="flatTags"></div>
+                            </div>
+
                             <div id="bannerHiddenInputs"></div>
                             <input type="hidden" name="banner_tree_json" id="bannerTreeJson" value="[]">
-                            <div class="form-text" id="bannerSelectionPreview">Flat: independent groups. Tree: nested levels left-to-right.</div>
+                            <div class="form-text" id="bannerSelectionPreview">Add variables as nested or independent banner columns.</div>
                         </div>
                     </div>
 
@@ -167,7 +178,8 @@
   });
 
   const rowState = [];
-  const bannerState = [];
+  const treeState = [];   // nested banner variables
+  const flatState = [];   // independent banner variables
 
   function uniquePush(list, value) {
     if (!value || list.includes(value)) return;
@@ -177,6 +189,11 @@
   function removeValue(list, value) {
     const idx = list.indexOf(value);
     if (idx >= 0) list.splice(idx, 1);
+  }
+
+  // Check if a code is already used in tree or flat
+  function isUsedInBanner(code) {
+    return treeState.some((c) => c === code) || flatState.some((c) => c === code);
   }
 
   function renderTags(list, tagsId, hiddenId, inputName) {
@@ -206,71 +223,96 @@
     });
   }
 
-  function renderBannerTree() {
-    const layoutMode = selectedValue("bannerLayoutMode") || "flat";
+  function renderTreeTags() {
     const tagsContainer = document.getElementById("treeTags");
-    const hiddenContainer = document.getElementById("bannerHiddenInputs");
-    const treeInput = document.getElementById("bannerTreeJson");
     tagsContainer.innerHTML = "";
-    hiddenContainer.innerHTML = "";
 
-    bannerState.forEach((item, index) => {
-      const code = item.variable_code;
+    treeState.forEach((code, index) => {
       const chip = document.createElement("span");
       chip.className = "tag-chip";
-      if (layoutMode === "tree") {
-        chip.innerHTML = `
-          <span><strong>L${index + 1}</strong>: ${labelByCode[code] || code}</span>
-          <button type="button" class="tag-move" data-dir="up" data-code="${code}" title="Move left">&larr;</button>
-          <button type="button" class="tag-move" data-dir="down" data-code="${code}" title="Move right">&rarr;</button>
-          <button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>
-        `;
-      } else {
-        chip.innerHTML = `
-          <span>${labelByCode[code] || code}</span>
-          <button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>
-        `;
-      }
+      chip.innerHTML = `
+        <span><strong>L${index + 1}</strong>: ${labelByCode[code] || code}</span>
+        <button type="button" class="tag-move" data-dir="up" data-code="${code}" title="Move left">&larr;</button>
+        <button type="button" class="tag-move" data-dir="down" data-code="${code}" title="Move right">&rarr;</button>
+        <button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>
+      `;
       tagsContainer.appendChild(chip);
-
-      const hidden = document.createElement("input");
-      hidden.type = "hidden";
-      hidden.name = "banner_column_variables";
-      hidden.value = code;
-      hiddenContainer.appendChild(hidden);
     });
-
-    if (layoutMode === "tree") {
-      treeInput.value = JSON.stringify(bannerState.map((item) => ({
-        variable_code: item.variable_code,
-        label: labelByCode[item.variable_code] || item.variable_code,
-      })));
-    } else {
-      treeInput.value = "[]";
-    }
 
     tagsContainer.querySelectorAll(".tag-remove").forEach((button) => {
       button.addEventListener("click", () => {
-        const idx = bannerState.findIndex((item) => item.variable_code === button.dataset.code);
-        if (idx >= 0) bannerState.splice(idx, 1);
-        renderBannerTree();
+        removeValue(treeState, button.dataset.code);
+        renderTreeTags();
+        syncHiddenInputs();
         updateSummary();
       });
     });
     tagsContainer.querySelectorAll(".tag-move").forEach((button) => {
       button.addEventListener("click", () => {
         const code = button.dataset.code;
-        const idx = bannerState.findIndex((item) => item.variable_code === code);
+        const idx = treeState.indexOf(code);
         if (idx < 0) return;
         if (button.dataset.dir === "up" && idx > 0) {
-          [bannerState[idx - 1], bannerState[idx]] = [bannerState[idx], bannerState[idx - 1]];
+          [treeState[idx - 1], treeState[idx]] = [treeState[idx], treeState[idx - 1]];
         }
-        if (button.dataset.dir === "down" && idx < bannerState.length - 1) {
-          [bannerState[idx + 1], bannerState[idx]] = [bannerState[idx], bannerState[idx + 1]];
+        if (button.dataset.dir === "down" && idx < treeState.length - 1) {
+          [treeState[idx + 1], treeState[idx]] = [treeState[idx], treeState[idx + 1]];
         }
-        renderBannerTree();
+        renderTreeTags();
+        syncHiddenInputs();
         updateSummary();
       });
+    });
+  }
+
+  function renderFlatTags() {
+    const tagsContainer = document.getElementById("flatTags");
+    tagsContainer.innerHTML = "";
+
+    flatState.forEach((code) => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.innerHTML = `<span>${labelByCode[code] || code}</span><button type="button" class="tag-remove" data-code="${code}" aria-label="Remove">&times;</button>`;
+      tagsContainer.appendChild(chip);
+    });
+
+    tagsContainer.querySelectorAll(".tag-remove").forEach((button) => {
+      button.addEventListener("click", () => {
+        removeValue(flatState, button.dataset.code);
+        renderFlatTags();
+        syncHiddenInputs();
+        updateSummary();
+      });
+    });
+  }
+
+  function syncHiddenInputs() {
+    const hiddenContainer = document.getElementById("bannerHiddenInputs");
+    const treeJsonInput = document.getElementById("bannerTreeJson");
+    hiddenContainer.innerHTML = "";
+
+    // banner_tree_json for nested vars
+    treeJsonInput.value = JSON.stringify(treeState.map((code) => ({
+      variable_code: code,
+      label: labelByCode[code] || code,
+    })));
+
+    // banner_flat_variables hidden inputs
+    flatState.forEach((code) => {
+      const hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = "banner_flat_variables";
+      hidden.value = code;
+      hiddenContainer.appendChild(hidden);
+    });
+
+    // banner_column_variables: all (tree + flat) for backward compat
+    [...treeState, ...flatState].forEach((code) => {
+      const hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = "banner_column_variables";
+      hidden.value = code;
+      hiddenContainer.appendChild(hidden);
     });
   }
 
@@ -282,28 +324,24 @@
   function updateSummary() {
     const displayMode = selectedValue("displayMode");
     const percentMode = selectedValue("percentMode");
-    const layoutMode = selectedValue("bannerLayoutMode") || "flat";
+    const hasBanner = treeState.length > 0 || flatState.length > 0;
 
     document.getElementById("rowSummary").textContent = rowState.length ? rowState.join(", ") : "Not selected";
-    document.getElementById("bannerSummary").textContent = bannerState.length
-      ? (layoutMode === "tree"
-          ? bannerState.map((item) => item.variable_code).join(" > ")
-          : bannerState.map((item) => item.variable_code).join(", "))
-      : "Not selected";
+
+    const parts = [];
+    if (treeState.length) parts.push("Tree: " + treeState.join(" > "));
+    if (flatState.length) parts.push("Flat: " + flatState.join(", "));
+    document.getElementById("bannerSummary").textContent = parts.length ? parts.join(" | ") : "Not selected";
+
     document.getElementById("displayModePreview").textContent = displayMode || "Count";
     document.getElementById("percentModePreview").textContent = percentMode || "total_percent";
     document.getElementById("percentModeSummaryRow").style.display = displayMode === "Count" ? "none" : "";
-    document.getElementById("continueButton").disabled = !(rowState.length && bannerState.length);
+    document.getElementById("continueButton").disabled = !(rowState.length && hasBanner);
 
     document.getElementById("rowSelectionPreview").textContent = rowState.length ? `Selected ${rowState.length}: ${rowState.join(", ")}` : "Appears as sections/rows on the left side.";
-    document.getElementById("treeBuilderLabel").textContent = layoutMode === "tree" ? "Header tree builder (left to right)" : "Add banner column";
-    document.getElementById("addTreeBtn").textContent = layoutMode === "tree" ? "Add level" : "Add";
-    document.getElementById("bannerSelectionPreview").textContent = bannerState.length
-      ? (layoutMode === "tree"
-          ? `Levels: ${bannerState.map((item) => item.variable_code).join(" > ")}`
-          : `Groups: ${bannerState.map((item) => item.variable_code).join(", ")}`)
-      : "Flat: independent groups. Tree: nested levels left-to-right.";
-
+    document.getElementById("bannerSelectionPreview").textContent = hasBanner
+      ? `Nested: ${treeState.length}, Independent: ${flatState.length}`
+      : "Add variables as nested or independent banner columns.";
   }
 
   function filterPicker(searchId, pickerId) {
@@ -318,25 +356,29 @@
     });
   }
 
-  function addFromPicker(pickerId, state, tagsId, hiddenId, inputName) {
-    const picker = document.getElementById(pickerId);
+  function addToTree() {
+    const picker = document.getElementById("bannerPicker");
     if (!picker) return;
     Array.from(picker.selectedOptions).forEach((opt) => {
-      if (opt.value) uniquePush(state, opt.value);
+      if (opt.value && !isUsedInBanner(opt.value)) {
+        treeState.push(opt.value);
+      }
     });
-    renderTags(state, tagsId, hiddenId, inputName);
+    renderTreeTags();
+    syncHiddenInputs();
     updateSummary();
   }
 
-  function addTreeLevel() {
-    const picker = document.getElementById("treePicker");
+  function addToFlat() {
+    const picker = document.getElementById("bannerPicker");
     if (!picker) return;
     Array.from(picker.selectedOptions).forEach((opt) => {
-      if (opt.value && !bannerState.some((item) => item.variable_code === opt.value)) {
-        bannerState.push({ variable_code: opt.value });
+      if (opt.value && !isUsedInBanner(opt.value)) {
+        flatState.push(opt.value);
       }
     });
-    renderBannerTree();
+    renderFlatTags();
+    syncHiddenInputs();
     updateSummary();
   }
 
@@ -374,42 +416,50 @@
     });
   }
 
+  // --- Initialize state from existing config ---
   initialRows.forEach((value) => uniquePush(rowState, value));
+
+  // Restore tree vars from banner_tree
+  const treeCodes = new Set();
   if (initialBannerTree && initialBannerTree.length) {
     initialBannerTree.forEach((item) => {
-      if (item && item.variable_code && !bannerState.some((v) => v.variable_code === item.variable_code)) {
-        bannerState.push({ variable_code: item.variable_code });
-      }
-    });
-  } else {
-    initialBanners.forEach((value) => {
-      if (value && !bannerState.some((v) => v.variable_code === value)) {
-        bannerState.push({ variable_code: value });
+      if (item && item.variable_code && !treeCodes.has(item.variable_code)) {
+        treeState.push(item.variable_code);
+        treeCodes.add(item.variable_code);
       }
     });
   }
 
+  // Restore flat vars: banner vars not in tree
+  initialBanners.forEach((code) => {
+    if (code && !treeCodes.has(code) && !flatState.includes(code)) {
+      flatState.push(code);
+    }
+  });
+
   renderTags(rowState, "rowTags", "rowHiddenInputs", "banner_row_variables");
-  renderBannerTree();
+  renderTreeTags();
+  renderFlatTags();
+  syncHiddenInputs();
   filterPicker("rowSearch", "rowPicker");
-  filterPicker("treeSearch", "treePicker");
+  filterPicker("bannerSearch", "bannerPicker");
 
   document.getElementById("addRowBtn").addEventListener("click", () => {
-    addFromPicker("rowPicker", rowState, "rowTags", "rowHiddenInputs", "banner_row_variables");
+    const picker = document.getElementById("rowPicker");
+    if (!picker) return;
+    Array.from(picker.selectedOptions).forEach((opt) => {
+      if (opt.value) uniquePush(rowState, opt.value);
+    });
+    renderTags(rowState, "rowTags", "rowHiddenInputs", "banner_row_variables");
+    updateSummary();
   });
-  document.getElementById("addTreeBtn").addEventListener("click", addTreeLevel);
+  document.getElementById("addTreeBtn").addEventListener("click", addToTree);
+  document.getElementById("addFlatBtn").addEventListener("click", addToFlat);
 
   ["displayMode", "percentMode"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("change", updateSummary);
   });
-  const layoutModeEl = document.getElementById("bannerLayoutMode");
-  if (layoutModeEl) {
-    layoutModeEl.addEventListener("change", () => {
-      renderBannerTree();
-      updateSummary();
-    });
-  }
 
   for (let i = 1; i <= 3; i++) {
     const variableSelectId = `filter_variable_${i}`;

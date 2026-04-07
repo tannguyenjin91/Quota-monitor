@@ -161,8 +161,8 @@ def configure_quota(upload_id):
         action = request.form.get("action", "save")
         banner_rows = [item.strip() for item in request.form.getlist("banner_row_variables") if item.strip()]
         banner_columns = [item.strip() for item in request.form.getlist("banner_column_variables") if item.strip()]
+        banner_flat_columns = [item.strip() for item in request.form.getlist("banner_flat_variables") if item.strip()]
         raw_banner_tree = request.form.get("banner_tree_json", "").strip()
-        banner_layout_mode = request.form.get("banner_layout_mode", "flat").strip() or "flat"
         parsed_banner_tree = []
         if raw_banner_tree:
             try:
@@ -176,15 +176,15 @@ def configure_quota(upload_id):
         selected_filters = parse_selected_filters(request.form)
         if banner_rows:
             selected_row_variables = banner_rows
-        if banner_columns:
+        # Combine tree + flat into banner variables
+        tree_codes = [item["variable_code"] for item in parsed_banner_tree] if parsed_banner_tree else []
+        all_banner_codes = tree_codes + [c for c in banner_flat_columns if c not in tree_codes]
+        if all_banner_codes:
+            selected_banner_variables = all_banner_codes
+        elif banner_columns:
             selected_banner_variables = banner_columns
-        if banner_layout_mode == "tree" and parsed_banner_tree:
-            selected_banner_tree = parsed_banner_tree
-            selected_banner_variables = [item["variable_code"] for item in parsed_banner_tree]
-        elif banner_layout_mode == "tree" and selected_banner_variables:
-            selected_banner_tree = [{"variable_code": code, "label": code} for code in selected_banner_variables]
-        else:
-            selected_banner_tree = []
+        selected_banner_tree = parsed_banner_tree
+        banner_layout_mode = "tree" if parsed_banner_tree else "flat"
         selected_vertical = selected_row_variables[0] if selected_row_variables else selected_vertical
         selected_horizontal = selected_banner_variables[0] if selected_banner_variables else selected_horizontal
         selected_banner_layout_mode = banner_layout_mode

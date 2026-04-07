@@ -78,19 +78,23 @@ def build_banner_table(
 ):
     accepted_df = cleaned_df[cleaned_df["is_accepted_for_quota"] == True].copy()  # noqa: E712
     row_variables = [item for item in row_variables if item]
-    banner_variables = resolve_banner_variables(banner_tree, banner_variables)
-    if banner_layout_mode == "tree":
-        column_groups = build_banner_column_groups(
-            accepted_df=accepted_df,
-            variable_catalog_lookup=variable_catalog_lookup,
-            banner_variables=banner_variables,
-        )
+
+    # Determine tree and flat variables
+    tree_vars = []
+    if banner_tree:
+        tree_vars = [item["variable_code"] for item in banner_tree if isinstance(item, dict) and item.get("variable_code")]
+    all_banner_vars = resolve_banner_variables(banner_tree, banner_variables)
+    flat_vars = [v for v in all_banner_vars if v not in tree_vars]
+
+    # Build column groups (mixed tree+flat supported)
+    if tree_vars and flat_vars:
+        tree_groups = build_banner_column_groups(accepted_df=accepted_df, variable_catalog_lookup=variable_catalog_lookup, banner_variables=tree_vars)
+        flat_groups = build_flat_banner_column_groups(accepted_df=accepted_df, variable_catalog_lookup=variable_catalog_lookup, banner_variables=flat_vars)
+        column_groups = tree_groups + [g for g in flat_groups if g["variable_code"] != "__overall__"]
+    elif tree_vars:
+        column_groups = build_banner_column_groups(accepted_df=accepted_df, variable_catalog_lookup=variable_catalog_lookup, banner_variables=tree_vars)
     else:
-        column_groups = build_flat_banner_column_groups(
-            accepted_df=accepted_df,
-            variable_catalog_lookup=variable_catalog_lookup,
-            banner_variables=banner_variables,
-        )
+        column_groups = build_flat_banner_column_groups(accepted_df=accepted_df, variable_catalog_lookup=variable_catalog_lookup, banner_variables=all_banner_vars)
 
     flat_columns = []
     for group in column_groups:
@@ -142,14 +146,16 @@ def build_banner_table(
     header_rows = build_banner_header_rows(
         column_groups=column_groups,
         banner_layout_mode=banner_layout_mode,
-        banner_variables=banner_variables,
+        banner_variables=all_banner_vars,
         accepted_df=accepted_df,
         variable_catalog_lookup=variable_catalog_lookup,
+        tree_vars=tree_vars,
+        flat_vars=flat_vars,
     )
 
     return {
         "report_type": "banner_table",
-        "selected_banner_variables": banner_variables,
+        "selected_banner_variables": all_banner_vars,
         "selected_banner_layout_mode": banner_layout_mode,
         "column_groups": column_groups,
         "header_rows": header_rows,
@@ -499,10 +505,15 @@ def is_selected_ma_value(value):
     return True
 
 
-def build_banner_header_rows(column_groups, banner_layout_mode, banner_variables, accepted_df, variable_catalog_lookup):
-    """Build header rows for banner table. Tree mode produces N rows for N variables."""
-    if banner_layout_mode == "tree" and banner_variables:
-        return _build_tree_header_rows(banner_variables, accepted_df, variable_catalog_lookup)
+def build_banner_header_rows(column_groups, banner_layout_mode, banner_variables, accepted_df, variable_catalog_lookup, tree_vars=None, flat_vars=None):
+    """Build header rows for banner table. Supports tree, flat, and mixed modes."""
+    tree_vars = tree_vars or []
+    flat_vars = flat_vars or []
+
+    if tree_vars and flat_vars:
+        return _build_mixed_header_rows(tree_vars, flat_vars, accepted_df, variable_catalog_lookup)
+    if tree_vars:
+        return _build_tree_header_rows(tree_vars, accepted_df, variable_catalog_lookup)
     return _build_flat_header_rows(column_groups)
 
 
@@ -531,16 +542,29 @@ def _build_flat_header_rows(column_groups):
     return [row0, row1]
 
 
-def _build_tree_header_rows(banner_variables, accepted_df, variable_catalog_lookup):
-    """Multi-level header rows for tree mode: N variables → N header rows."""
-    depth = len(banner_variables)
+def _build_tree_header_rows(tree_vars, accepted_df, variable_catalog_lookup, total_depth=None):
+    """Multi-level header rows for tree mode. total_depth overrides for mixed mode."""
+    tree_depth = len(tree_vars)
+    depth = total_depth if total_depth is not None else tree_depth
     all_cats = []
-    for var_code in banner_variables:
+    for var_code in tree_vars:
         entry = variable_catalog_lookup.get(var_code, {})
         cats = ordered_categories(entry, accepted_df.get(f"decoded__{var_code}", pd.Series(dtype=str)))
         all_cats.append(cats)
 
-    if depth == 1:
+    if tree_depth == 0:
+        # No tree vars — just sticky cols + overall total
+        header_rows = []
+        for level in range(depth):
+            row = []
+            if level == 0:
+                row.append({"label": "Question", "rowspan": depth, "colspan": 1, "class": "sticky-left", "align": "left"})
+                row.append({"label": "Category", "rowspan": depth, "colspan": 1, "class": "sticky-left-2", "align": "left"})
+                row.append({"label": "Total", "rowspan": depth, "colspan": 1, "class": "col-total-header"})
+            header_rows.append(row)
+        return header_rows
+
+    if tree_depth == 1 and depth == 1:
         row = [
             {"label": "Question", "rowspan": 1, "colspan": 1, "class": "sticky-left", "align": "left"},
             {"label": "Category", "rowspan": 1, "colspan": 1, "class": "sticky-left-2", "align": "left"},
@@ -556,42 +580,76 @@ def _build_tree_header_rows(banner_variables, accepted_df, variable_catalog_look
         row = []
 
         if level == 0:
-            # Sticky columns + Overall Total
             row.append({"label": "Question", "rowspan": depth, "colspan": 1, "class": "sticky-left", "align": "left"})
             row.append({"label": "Category", "rowspan": depth, "colspan": 1, "class": "sticky-left-2", "align": "left"})
             row.append({"label": "Total", "rowspan": depth, "colspan": 1, "class": "col-total-header"})
 
-            # L0 categories: each spans (1 group-total + product of deeper cats)
-            combo_count = 1
-            for j in range(1, depth):
-                combo_count *= len(all_cats[j])
-            for cat in all_cats[0]:
-                row.append({"label": cat, "colspan": 1 + combo_count, "rowspan": 1, "class": ""})
+            if tree_depth == 1:
+                # Single tree var: cats span all rows
+                for cat in all_cats[0]:
+                    row.append({"label": cat, "rowspan": depth, "colspan": 1, "class": ""})
+            else:
+                combo_count = 1
+                for j in range(1, tree_depth):
+                    combo_count *= len(all_cats[j])
+                for cat in all_cats[0]:
+                    row.append({"label": cat, "colspan": 1 + combo_count, "rowspan": 1, "class": ""})
 
-        elif level == 1:
-            # For each L0 category: group-total + L1 categories
+        elif level == 1 and tree_depth >= 2:
             combo_below = 1
-            for j in range(2, depth):
+            for j in range(2, tree_depth):
                 combo_below *= len(all_cats[j])
             for _l0 in range(len(all_cats[0])):
                 row.append({"label": "Total", "rowspan": depth - 1, "colspan": 1, "class": ""})
                 for cat in all_cats[1]:
-                    cs = combo_below if depth > 2 else 1
+                    cs = combo_below if tree_depth > 2 else 1
                     row.append({"label": cat, "colspan": cs, "rowspan": 1, "class": ""})
 
-        else:
-            # Level 2+: repeat for each ancestor combination
+        elif level < tree_depth:
+            # Tree levels 2+
             repeat = len(all_cats[0])
             for j in range(1, level):
                 repeat *= len(all_cats[j])
             combo_below = 1
-            for j in range(level + 1, depth):
+            for j in range(level + 1, tree_depth):
                 combo_below *= len(all_cats[j])
             for _r in range(repeat):
                 for cat in all_cats[level]:
                     row.append({"label": cat, "colspan": combo_below if combo_below > 1 else 1, "rowspan": 1, "class": ""})
+        # else: level >= tree_depth, empty row (for flat parts added externally)
 
         header_rows.append(row)
+    return header_rows
+
+
+def _build_mixed_header_rows(tree_vars, flat_vars, accepted_df, variable_catalog_lookup):
+    """Header rows for mixed tree + flat banner variables."""
+    tree_depth = len(tree_vars) if tree_vars else 0
+    depth = max(tree_depth, 2)  # at least 2 rows when flat vars exist
+
+    # Build tree header rows with adjusted depth
+    header_rows = _build_tree_header_rows(tree_vars, accepted_df, variable_catalog_lookup, total_depth=depth)
+
+    # Gather flat variable info
+    flat_info = []
+    for vc in flat_vars:
+        entry = variable_catalog_lookup.get(vc, {})
+        cats = ordered_categories(entry, accepted_df.get(f"decoded__{vc}", pd.Series(dtype=str)))
+        flat_info.append({"label": entry.get("question_label", vc), "categories": cats})
+
+    # Append flat parts: label on row 0 with rowspan, categories on last row
+    for fi in flat_info:
+        header_rows[0].append({
+            "label": fi["label"],
+            "colspan": len(fi["categories"]) + 1,
+            "rowspan": max(depth - 1, 1),
+            "class": "",
+        })
+    for fi in flat_info:
+        header_rows[depth - 1].append({"label": "Total", "colspan": 1, "rowspan": 1, "class": ""})
+        for cat in fi["categories"]:
+            header_rows[depth - 1].append({"label": cat, "colspan": 1, "rowspan": 1, "class": ""})
+
     return header_rows
 
 
