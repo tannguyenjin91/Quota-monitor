@@ -510,14 +510,11 @@ def is_selected_ma_value(value):
 
 
 def build_banner_header_rows(column_groups, banner_layout_mode, banner_variables, accepted_df, variable_catalog_lookup, tree_vars=None, flat_vars=None):
-    """Build header rows for banner table. Supports tree, flat, and mixed modes."""
-    tree_vars = tree_vars or []
-    flat_vars = flat_vars or []
+    """Build header rows aligned with rendered data cells.
 
-    if tree_vars and flat_vars:
-        return _build_mixed_header_rows(tree_vars, flat_vars, accepted_df, variable_catalog_lookup)
-    if tree_vars:
-        return _build_tree_header_rows(tree_vars, accepted_df, variable_catalog_lookup)
+    Use a stable 2-row header driven directly from column_groups so header colspans
+    always match body cell count in flat/tree/mixed selections.
+    """
     return _build_flat_header_rows(column_groups)
 
 

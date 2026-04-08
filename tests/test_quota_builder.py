@@ -169,3 +169,36 @@ def test_banner_tree_order_is_applied_for_column_building():
     )
     assert result["selected_banner_variables"] == ["CITY", "GENDER", "AGE"]
     assert result["column_groups"][1]["question_label"] == "HCM"
+
+
+def test_mixed_tree_flat_header_matches_body_columns():
+    cleaned_df = pd.DataFrame(
+        [
+            {"is_accepted_for_quota": True, "decoded__ROW": "A", "decoded__S3": "Dong", "decoded__S2": "0-2", "decoded__GENDER": "Nam"},
+            {"is_accepted_for_quota": True, "decoded__ROW": "B", "decoded__S3": "Bac", "decoded__S2": "2-5", "decoded__GENDER": "Nu"},
+        ]
+    )
+    variable_catalog_lookup = {
+        "ROW": {"question_label": "Row", "available_labels": ["A", "B"]},
+        "S3": {"question_label": "Direction", "available_labels": ["Bac", "Dong"]},
+        "S2": {"question_label": "Distance", "available_labels": ["0-2", "2-5"]},
+        "GENDER": {"question_label": "Gender", "available_labels": ["Nam", "Nu"]},
+    }
+    result = build_banner_table(
+        cleaned_df=cleaned_df,
+        variable_catalog_lookup=variable_catalog_lookup,
+        row_variables=["ROW"],
+        banner_variables=["S3", "S2", "GENDER"],
+        banner_tree=[{"variable_code": "S3"}, {"variable_code": "S2"}],
+        banner_layout_mode="tree",
+        display_mode="Count",
+        percent_mode="total_percent",
+    )
+    assert len(result["header_rows"]) == 2
+    data_col_count = len(result["flat_columns"])
+    header_top_data_sum = sum(cell.get("colspan", 1) for cell in result["header_rows"][0]) - 2
+    header_bottom_count = len(result["header_rows"][1])
+    row_cell_count = len(result["banner_views"][0]["sections"][0]["rows"][0]["cells"])
+    assert header_top_data_sum == data_col_count
+    assert header_bottom_count == data_col_count
+    assert row_cell_count == data_col_count
