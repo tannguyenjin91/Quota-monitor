@@ -83,7 +83,11 @@ def build_banner_table(
     tree_vars = []
     if banner_tree:
         tree_vars = [item["variable_code"] for item in banner_tree if isinstance(item, dict) and item.get("variable_code")]
-    all_banner_vars = resolve_banner_variables(banner_tree, banner_variables)
+    # all_banner_vars = tree codes + any remaining flat codes from banner_variables
+    all_banner_vars = list(tree_vars)
+    for v in banner_variables:
+        if v and v not in all_banner_vars:
+            all_banner_vars.append(v)
     flat_vars = [v for v in all_banner_vars if v not in tree_vars]
 
     # Build column groups (mixed tree+flat supported)
