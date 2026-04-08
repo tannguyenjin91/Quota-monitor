@@ -1,0 +1,13 @@
+.git
+.gitignore
+.claude/
+__pycache__/
+*.pyc
+instance/
+uploads/
+outputs/
+.pytest_cache/
+*.egg-info
+.env
+*.db
+*.pkl

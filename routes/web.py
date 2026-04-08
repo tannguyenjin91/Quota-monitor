@@ -176,9 +176,13 @@ def configure_quota(upload_id):
         selected_filters = parse_selected_filters(request.form)
         if banner_rows:
             selected_row_variables = banner_rows
-        # Combine tree + flat into banner variables
+        # Combine tree + flat into banner variables (robust fallback to all banner columns)
         tree_codes = [item["variable_code"] for item in parsed_banner_tree] if parsed_banner_tree else []
-        all_banner_codes = tree_codes + [c for c in banner_flat_columns if c not in tree_codes]
+        all_banner_codes = merge_banner_selection_codes(
+            tree_codes=tree_codes,
+            flat_codes=banner_flat_columns,
+            all_codes=banner_columns,
+        )
         if all_banner_codes:
             selected_banner_variables = all_banner_codes
         elif banner_columns:
@@ -494,3 +498,20 @@ def choose_default_drill_variable(variable_choices):
             if item["variable_code"] == preferred_code:
                 return preferred_code
     return variable_choices[0]["variable_code"]
+
+
+def merge_banner_selection_codes(tree_codes, flat_codes, all_codes):
+    merged = []
+    for code in tree_codes or []:
+        code = (code or "").strip()
+        if code and code not in merged:
+            merged.append(code)
+    for code in flat_codes or []:
+        code = (code or "").strip()
+        if code and code not in merged:
+            merged.append(code)
+    for code in all_codes or []:
+        code = (code or "").strip()
+        if code and code not in merged:
+            merged.append(code)
+    return merged
